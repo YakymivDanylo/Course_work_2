@@ -194,39 +194,99 @@ def show_tourist_window():
         for t in db.get_tourists():
             tree.insert('', 'end', values=(t['id'], t['full_name'], t['passport'], t['gender'], t['age'], t['category'], t['children_info']))
     refresh()
+
     def add_tourist():
         form = tk.Toplevel()
         form.title('Додати туриста')
-        labels = ['ПІБ', 'Паспорт', 'Стать', 'Вік', 'Категорія', 'Діти']
-        entries = [tk.Entry(form) for _ in labels]
-        for i, l in enumerate(labels):
-            tk.Label(form, text=l).grid(row=i, column=0)
-            entries[i].grid(row=i, column=1)
+
+        # Утиліта для плейсхолдерів
+        def add_placeholder(entry, placeholder):
+            entry.insert(0, placeholder)
+            entry.config(fg='grey')
+
+            def on_focus_in(event):
+                if entry.get() == placeholder:
+                    entry.delete(0, tk.END)
+                    entry.config(fg='black')
+
+            def on_focus_out(event):
+                if not entry.get():
+                    entry.insert(0, placeholder)
+                    entry.config(fg='grey')
+
+            entry.bind('<FocusIn>', on_focus_in)
+            entry.bind('<FocusOut>', on_focus_out)
+
+        # Поля
+        tk.Label(form, text='ПІБ').grid(row=0, column=0)
+        entry_name = tk.Entry(form, width=30)
+        add_placeholder(entry_name, 'Введіть ПІБ')
+        entry_name.grid(row=0, column=1)
+
+        tk.Label(form, text='Паспорт').grid(row=1, column=0)
+        entry_passport = tk.Entry(form, width=30)
+        add_placeholder(entry_passport, 'AA123456')
+        entry_passport.grid(row=1, column=1)
+
+        tk.Label(form, text='Стать').grid(row=2, column=0)
+        combo_gender = ttk.Combobox(form, values=['чоловіча', 'жіноча'], state='readonly', width=28)
+        combo_gender.set('Оберіть стать')
+        combo_gender.grid(row=2, column=1)
+
+        tk.Label(form, text='Вік').grid(row=3, column=0)
+        entry_age = tk.Entry(form, width=30)
+        add_placeholder(entry_age, 'Введіть вік')
+        entry_age.grid(row=3, column=1)
+
+        tk.Label(form, text='Категорія').grid(row=4, column=0)
+        combo_category = ttk.Combobox(form, values=['відпочинок', 'вантаж'], state='readonly', width=28)
+        combo_category.set('Оберіть категорію')
+        combo_category.grid(row=4, column=1)
+
+        tk.Label(form, text='Діти').grid(row=5, column=0)
+        entry_children = tk.Entry(form, width=30)
+        add_placeholder(entry_children, 'Інформація про дітей')
+        entry_children.grid(row=5, column=1)
+
         def save():
-            # Валідація даних
-            if not validate_required(entries[0].get()):  # ПІБ
-                messagebox.showerror('Помилка', 'ПІБ є обов\'язковим полем')
+            name = entry_name.get().strip()
+            passport = entry_passport.get().strip()
+            gender = combo_gender.get()
+            age = entry_age.get().strip()
+            category = combo_category.get()
+            children = entry_children.get().strip()
+
+            # Валідація
+            if not validate_required(name):
+                messagebox.showerror('Помилка', 'ПІБ є обов\'язковим')
                 return
-            if not validate_required(entries[1].get()):  # Паспорт
-                messagebox.showerror('Помилка', 'Паспорт є обов\'язковим полем')
+            if not validate_required(passport):
+                messagebox.showerror('Помилка', 'Паспорт є обов\'язковим')
                 return
-            if not validate_number(entries[3].get()):  # Вік
+            if not validate_number(age):
                 messagebox.showerror('Помилка', 'Вік повинен бути числом')
                 return
-            if entries[4].get() not in ['відпочинок', 'вантаж', '']:  # Категорія
-                messagebox.showerror('Помилка', 'Категорія повинна бути "відпочинок" або "вантаж"')
+            if category not in ['відпочинок', 'вантаж']:
+                messagebox.showerror('Помилка', 'Виберіть категорію (відпочинок/вантаж)')
                 return
-            
-            if db.add_tourist(*(e.get() for e in entries)):
+            if gender not in ['чоловіча', 'жіноча']:
+                messagebox.showerror('Помилка', 'Виберіть стать')
+                return
+
+            if children == '' or children == 'Інформація про дітей':
+                children = 'немає'
+
+            if db.add_tourist(name, passport, gender, age, category, children):
                 messagebox.showinfo('Успіх', 'Туриста додано')
                 form.destroy()
                 refresh()
             else:
                 messagebox.showerror('Помилка', 'Не вдалося додати туриста')
-        tk.Button(form, text='Зберегти', command=save).grid(row=len(labels), column=0, columnspan=2)
+
+        tk.Button(form, text='Зберегти', command=save).grid(row=6, column=0, columnspan=2)
         form.bind('<Return>', lambda e: save())
         form.bind('<Escape>', lambda e: form.destroy())
-    
+
     def edit_tourist():
         sel = tree.selection()
         if not sel:
