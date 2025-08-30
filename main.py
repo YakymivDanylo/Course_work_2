@@ -105,7 +105,7 @@ def show_main_menu():
     # Функціональні запити доступні всім (з обмеженнями)
     tk.Button(main_win, text='Функціональні запити', command=show_queries_window).pack(fill='x')
     tk.Button(main_win, text='Заявки', command=show_requests_window).pack(fill='x')
-    tk.Button(main_win, text='Вийти', command=main_win.destroy).pack(fill='x')
+    tk.Button(main_win, text='Вийти', command=logout).pack(fill='x')
     
     # Підтримка клавішних комбінацій
     def on_key_press(event):
@@ -124,6 +124,22 @@ def show_main_menu():
     main_win.focus_set()  # Дозволити вікну отримувати події клавіатури
     main_win.mainloop()
 
+def logout():
+    global current_user
+    current_user = None
+    
+    # Закриваємо всі відкриті вікна Tkinter
+    for widget in tk._default_root.winfo_children():
+        if isinstance(widget, tk.Toplevel):
+            widget.destroy()
+    
+    # Закриваємо головне вікно, якщо воно існує
+    if tk._default_root:
+        tk._default_root.destroy()
+    
+    # Відкриваємо вікно входу
+    show_login_window()
+
 # --- Додавання користувача ---
 def show_add_user_window():
     win = tk.Toplevel()
@@ -131,19 +147,26 @@ def show_add_user_window():
     tk.Label(win, text='Логін').grid(row=0, column=0)
     tk.Label(win, text='Пароль').grid(row=1, column=0)
     tk.Label(win, text='Права').grid(row=2, column=0)
-    entry_login = tk.Entry(win)
-    entry_password = tk.Entry(win)
-    combo_role = ttk.Combobox(win, values=['Адміністратор', 'Оператор', 'Авторизований', 'Гість'])
+
+    width = 25  # спільна ширина полів
+
+    entry_login = tk.Entry(win, width=width)
+    entry_password = tk.Entry(win, width=width, show='*')
+    combo_role = ttk.Combobox(win, values=['Адміністратор', 'Оператор', 'Авторизований', 'Гість'], width=width-2)
+
     entry_login.grid(row=0, column=1)
     entry_password.grid(row=1, column=1)
     combo_role.grid(row=2, column=1)
+
     def add():
         if db.add_user(entry_login.get(), entry_password.get(), combo_role.get()):
             messagebox.showinfo('Успіх', 'Користувача додано')
             win.destroy()
         else:
             messagebox.showerror('Помилка', 'Не вдалося додати користувача')
+
     tk.Button(win, text='Додати', command=add).grid(row=3, column=0, columnspan=2)
+
 
 # --- Користувачі (тільки для адміністраторів/операторів) ---
 def show_users_window():
@@ -880,7 +903,7 @@ def show_queries_window():
             else:
                 columns = []
                 data = []
-            display_table('Витрати/прибутки за період', columns, data, name='Витрати/прибутки за період', raw_result=res)
+            display_table('Витрати/прибутки за період', columns, data, query_name='Витрати/прибутки за період', raw_result=res)
 
 
         tk.Button(form, text='Показати', command=run).grid(row=2, column=0, columnspan=2)
@@ -971,15 +994,26 @@ def show_queries_window():
             tourist_id = tourists[combo.current()]['id'] if combo.current() >= 0 else None
             res = db.get_tourist_info(tourist_id)
             if res:
-                if isinstance(res, list) and len(res) > 0 and isinstance(res[0], dict):
-                    columns = list(res[0].keys())
-                    data = [tuple(item[col] for col in columns) for item in res]
-                else:
-                    columns = ['Інформація']
-                    data = [(str(res),)]
+                # Створюємо таблицю з двома колонками: Характеристика та Значення
+                columns = ['Характеристика', 'Значення']
+                data = [
+                    ('ID', res['id']),
+                    ('ПІБ', res['full_name']),
+                    ('Паспорт', res['passport']),
+                    ('Стать', res['gender']),
+                    ('Вік', res['age']),
+                    ('Категорія', res['category']),
+                    ('Діти', res['children_info']),
+                    ('Кількість поїздок', res['trips_count']),
+                    ('Дати прибуття', ', '.join(str(d) for d in res['arrivals']) if res['arrivals'] else 'Немає даних'),
+                    ('Дати відбуття', ', '.join(str(d) for d in res['departures']) if res['departures'] else 'Немає даних'),
+                    ('Готелі', ', '.join(res['hotels']) if res['hotels'] else 'Немає даних'),
+                    ('Екскурсії', ', '.join(res['excursions']) if res['excursions'] else 'Немає даних'),
+                    ('Вантаж', ', '.join(str(c) for c in res['cargos']) if res['cargos'] else 'Немає даних')
+                ]
             else:
-                columns = []
-                data = []
+                columns = ['Інформація']
+                data = [('Дані не знайдено',)]
             display_table('Інформація про туриста', columns, data, query_name='Інформація про туриста', raw_result=res)
 
 
