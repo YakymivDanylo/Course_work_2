@@ -447,6 +447,10 @@ def show_hotel_window():
         for h in db.get_hotels():
             tree.insert('', 'end', values=(h['id'], h['name'], h['address'], h['rooms_count'], h['room_types']))
     refresh()
+
+    import re
+    from tkinter import messagebox
+
     def add_hotel():
         form = tk.Toplevel()
         form.title('Додати готель')
@@ -455,16 +459,48 @@ def show_hotel_window():
         for i, l in enumerate(labels):
             tk.Label(form, text=l).grid(row=i, column=0)
             entries[i].grid(row=i, column=1)
+
         def save():
-            if db.add_hotel(*(e.get() for e in entries)):
+            name = entries[0].get().strip()
+            address = entries[1].get().strip()
+            rooms = entries[2].get().strip()
+            room_types = entries[3].get().strip()
+
+            # Перевірка назви
+            if not validate_required(name):
+                messagebox.showerror('Помилка', 'Назва готелю є обов\'язковою')
+                return
+            if name.isdigit():
+                messagebox.showerror('Помилка', 'Назва готелю не може складатися лише з цифр')
+                return
+
+            # Перевірка кількості номерів
+            if not validate_required(rooms):
+                messagebox.showerror('Помилка', 'Поле "К-сть номерів" є обов\'язковим')
+                return
+            if not validate_number(rooms):
+                messagebox.showerror('Помилка', 'Кількість номерів має бути числом')
+                return
+
+            # 🔹 Перевірка типу номерів (не має містити цифр)
+            if not validate_required(room_types):
+                messagebox.showerror('Помилка', 'Поле "Типи номерів" є обов\'язковим')
+                return
+            if re.search(r'\d', room_types):
+                messagebox.showerror('Помилка', 'Поле "Типи номерів" не може містити цифри')
+                return
+
+            if db.add_hotel(name, address, rooms, room_types):
                 messagebox.showinfo('Успіх', 'Готель додано')
-                form.destroy(); refresh()
+                form.destroy()
+                refresh()
             else:
                 messagebox.showerror('Помилка', 'Не вдалося додати готель')
+
         tk.Button(form, text='Зберегти', command=save).grid(row=len(labels), column=0, columnspan=2)
         form.bind('<Return>', lambda e: save())
         form.bind('<Escape>', lambda e: form.destroy())
-    
+
     def edit_hotel():
         sel = tree.selection()
         if not sel:
@@ -472,35 +508,61 @@ def show_hotel_window():
             return
         item = tree.item(sel[0])
         hotel_id = item['values'][0]
-        
+
         form = tk.Toplevel()
         form.title('Редагувати готель')
         labels = ['Назва', 'Адреса', 'К-сть номерів', 'Типи номерів']
         entries = [tk.Entry(form) for _ in labels]
-        
-        # Заповнити поточними значеннями
+
         current_values = item['values'][1:5]
         for i, value in enumerate(current_values):
             entries[i].insert(0, str(value))
-        
+
         for i, l in enumerate(labels):
             tk.Label(form, text=l).grid(row=i, column=0)
             entries[i].grid(row=i, column=1)
-        
+
         def save():
-            if validate_required(entries[0].get()) and validate_number(entries[2].get()):
-                if db.update_hotel(hotel_id, *(e.get() for e in entries)):
-                    messagebox.showinfo('Успіх', 'Готель оновлено')
-                    form.destroy(); refresh()
-                else:
-                    messagebox.showerror('Помилка', 'Не вдалося оновити готель')
+            name = entries[0].get().strip()
+            address = entries[1].get().strip()
+            rooms = entries[2].get().strip()
+            room_types = entries[3].get().strip()
+
+            # Перевірка назви
+            if not validate_required(name):
+                messagebox.showerror('Помилка', 'Назва готелю є обов\'язковою')
+                return
+            if name.isdigit():
+                messagebox.showerror('Помилка', 'Назва готелю не може складатися лише з цифр')
+                return
+
+            # Перевірка кількості номерів
+            if not validate_required(rooms):
+                messagebox.showerror('Помилка', 'Поле "К-сть номерів" є обов\'язковим')
+                return
+            if not validate_number(rooms):
+                messagebox.showerror('Помилка', 'Кількість номерів має бути числом')
+                return
+
+            # 🔹 Перевірка типу номерів (не має містити цифр)
+            if not validate_required(room_types):
+                messagebox.showerror('Помилка', 'Поле "Типи номерів" є обов\'язковим')
+                return
+            if re.search(r'\d', room_types):
+                messagebox.showerror('Помилка', 'Поле "Типи номерів" не може містити цифри')
+                return
+
+            if db.update_hotel(hotel_id, name, address, rooms, room_types):
+                messagebox.showinfo('Успіх', 'Готель оновлено')
+                form.destroy()
+                refresh()
             else:
-                messagebox.showerror('Помилка', 'Перевірте правильність введених даних')
-        
+                messagebox.showerror('Помилка', 'Не вдалося оновити готель')
+
         tk.Button(form, text='Зберегти', command=save).grid(row=len(labels), column=0, columnspan=2)
         form.bind('<Return>', lambda e: save())
         form.bind('<Escape>', lambda e: form.destroy())
-    
+
     def delete_hotel():
         sel = tree.selection()
         if not sel:
