@@ -587,8 +587,8 @@ def show_hotel_window():
 def show_excursion_window():
     win = tk.Toplevel()
     win.title('Екскурсії')
-    tree = ttk.Treeview(win, columns=('ID', 'Назва', 'Дата', 'Тривалість', 'Агентство', 'Ціна'), show='headings')
-    for col in ('ID', 'Назва', 'Дата', 'Тривалість', 'Агентство', 'Ціна'):
+    tree = ttk.Treeview(win, columns=('ID', 'Назва', 'Дата', 'Тривалість', 'Агентство', 'Ціна(грн)'), show='headings')
+    for col in ('ID', 'Назва', 'Дата', 'Тривалість', 'Агентство', 'Ціна(грн)'):
         tree.heading(col, text=col)
     tree.pack(fill='both', expand=True)
 
@@ -883,8 +883,8 @@ def show_agency_window():
 def show_cargo_window():
     win = tk.Toplevel()
     win.title('Вантаж')
-    tree = ttk.Treeview(win, columns=('ID', 'Турист', 'К-сть місць', 'Вага', 'Вартість упаковки', 'Страховка', 'Підсумок'), show='headings')
-    for col in ('ID', 'Турист', 'К-сть місць', 'Вага', 'Вартість упаковки', 'Страховка', 'Підсумок'):
+    tree = ttk.Treeview(win, columns=('ID', 'Турист', 'К-сть валіз', 'Вага(кг)', 'Вартість упаковки(грн)', 'Страховка(грн)', 'Підсумок(грн)'), show='headings')
+    for col in ('ID', 'Турист', 'К-сть валіз', 'Вага(кг)', 'Вартість упаковки(грн)', 'Страховка(грн)', 'Підсумок(грн)'):
         tree.heading(col, text=col)
     tree.pack(fill='both', expand=True)
     def refresh():
@@ -899,7 +899,7 @@ def show_cargo_window():
         form.title('Додати вантаж')
         tourists = db.get_tourists()
         combo_tourist = ttk.Combobox(form, values=[t['full_name'] for t in tourists])
-        labels = ['К-сть місць', 'Вага', 'Вартість упаковки', 'Страховка', 'Підсумок']
+        labels = ['К-сть валіз', 'Вага', 'Вартість упаковки', 'Страховка', 'Підсумок']
         entries = [tk.Entry(form) for _ in labels]
         tk.Label(form, text='Турист').grid(row=0, column=0)
         combo_tourist.grid(row=0, column=1)
@@ -929,7 +929,7 @@ def show_cargo_window():
         form.title('Редагувати вантаж')
         tourists = db.get_tourists()
         combo_tourist = ttk.Combobox(form, values=[t['full_name'] for t in tourists])
-        labels = ['К-сть місць', 'Вага', 'Вартість упаковки', 'Страховка', 'Підсумок']
+        labels = ['К-сть валіз', 'Вага', 'Вартість упаковки', 'Страховка', 'Підсумок']
         entries = [tk.Entry(form) for _ in labels]
         
         # Заповнити поточними значеннями
