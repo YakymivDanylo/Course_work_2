@@ -3,6 +3,7 @@ from tkinter import messagebox, ttk
 from tkcalendar import DateEntry
 import queries as db
 from datetime import datetime
+import re
 
 current_user = None
 
@@ -590,40 +591,73 @@ def show_excursion_window():
     for col in ('ID', 'Назва', 'Дата', 'Тривалість', 'Агентство', 'Ціна'):
         tree.heading(col, text=col)
     tree.pack(fill='both', expand=True)
+
+    # 🔹 Функція перевірки та перетворення HH:MM -> хвилини
+    def parse_duration(duration_str):
+        match = re.match(r'^([0-9]{1,2}):([0-5][0-9])$', duration_str)
+        if match:
+            hours = int(match.group(1))
+            minutes = int(match.group(2))
+            return hours * 60 + minutes
+        return None
+
+    # 🔹 Функція перетворення хвилин -> HH:MM
+    def format_duration(minutes):
+        h = minutes // 60
+        m = minutes % 60
+        return f"{h:02}:{m:02}"
+
     def refresh():
-        for i in tree.get_children(): tree.delete(i)
+        for i in tree.get_children():
+            tree.delete(i)
         agencies = {a['id']: a['name'] for a in db.get_excursion_agencies()}
         for e in db.get_excursions():
             agency = agencies.get(e['agency_id'], '')
-            tree.insert('', 'end', values=(e['id'], e['name'], e['date'], e['duration'], agency, e['price']))
+            duration_str = format_duration(int(e['duration'])) if e['duration'] else ''
+            tree.insert('', 'end', values=(
+                e['id'], e['name'], e['date'], duration_str, agency, e['price']
+            ))
+
     refresh()
+
     def add_excursion():
         form = tk.Toplevel()
         form.title('Додати екскурсію')
-        labels = ['Назва', 'Дата', 'Тривалість', 'Агентство', 'Ціна']
+        labels = ['Назва', 'Дата', 'Тривалість (ГГ:ХХ)', 'Агентство', 'Ціна']
         entry_name = tk.Entry(form)
         entry_date = DateEntry(form, date_pattern='yyyy-mm-dd')
         entry_duration = tk.Entry(form)
         agencies = db.get_excursion_agencies()
-        agency_ids = [a['id'] for a in agencies]
         agency_names = [a['name'] for a in agencies]
         combo_agency = ttk.Combobox(form, values=agency_names)
         entry_price = tk.Entry(form)
         widgets = [entry_name, entry_date, entry_duration, combo_agency, entry_price]
+
         for i, l in enumerate(labels):
             tk.Label(form, text=l).grid(row=i, column=0)
             widgets[i].grid(row=i, column=1)
+
         def save():
+            duration = parse_duration(entry_duration.get())
             agency_id = agencies[combo_agency.current()]['id'] if combo_agency.current() >= 0 else None
-            if db.add_excursion(entry_name.get(), entry_date.get(), entry_duration.get(), agency_id, entry_price.get()):
+
+            if not duration:
+                messagebox.showerror('Помилка', 'Невірний формат тривалості! Використовуйте ГГ:ХХ')
+                return
+
+            if db.add_excursion(
+                    entry_name.get(), entry_date.get(), duration, agency_id, entry_price.get()
+            ):
                 messagebox.showinfo('Успіх', 'Екскурсію додано')
-                form.destroy(); refresh()
+                form.destroy()
+                refresh()
             else:
                 messagebox.showerror('Помилка', 'Не вдалося додати екскурсію')
+
         tk.Button(form, text='Зберегти', command=save).grid(row=len(labels), column=0, columnspan=2)
         form.bind('<Return>', lambda e: save())
         form.bind('<Escape>', lambda e: form.destroy())
-    
+
     def edit_excursion():
         sel = tree.selection()
         if not sel:
@@ -631,9 +665,10 @@ def show_excursion_window():
             return
         item = tree.item(sel[0])
         excursion_id = item['values'][0]
-        
+
         form = tk.Toplevel()
         form.title('Редагувати екскурсію')
+
         entry_name = tk.Entry(form)
         entry_date = DateEntry(form, date_pattern='yyyy-mm-dd')
         entry_duration = tk.Entry(form)
@@ -641,36 +676,57 @@ def show_excursion_window():
         agency_names = [a['name'] for a in agencies]
         combo_agency = ttk.Combobox(form, values=agency_names)
         entry_price = tk.Entry(form)
-        
-        # Заповнити поточними значеннями
+
+        # Заповнення поточними значеннями
         entry_name.insert(0, item['values'][1])
         entry_date.set_date(item['values'][2])
-        entry_duration.insert(0, item['values'][3])
+        entry_duration.insert(0, item['values'][3])  # HH:MM
         combo_agency.set(item['values'][4])
         entry_price.insert(0, item['values'][5])
-        
-        labels = ['Назва', 'Дата', 'Тривалість', 'Агентство', 'Ціна']
+
+        labels = ['Назва', 'Дата', 'Тривалість (ГГ:ХХ)', 'Агентство', 'Ціна']
         widgets = [entry_name, entry_date, entry_duration, combo_agency, entry_price]
-        
+
         for i, l in enumerate(labels):
             tk.Label(form, text=l).grid(row=i, column=0)
             widgets[i].grid(row=i, column=1)
-        
+
         def save():
+            duration = parse_duration(entry_duration.get())
+            price_str = entry_price.get().strip()
             agency_id = agencies[combo_agency.current()]['id'] if combo_agency.current() >= 0 else None
-            if validate_required(entry_name.get()) and validate_number(entry_duration.get()) and validate_number(entry_price.get()) and agency_id:
-                if db.update_excursion(excursion_id, entry_name.get(), entry_date.get(), entry_duration.get(), agency_id, entry_price.get()):
-                    messagebox.showinfo('Успіх', 'Екскурсію оновлено')
-                    form.destroy(); refresh()
-                else:
-                    messagebox.showerror('Помилка', 'Не вдалося оновити екскурсію')
+
+            # 🔹 Валідація тривалості
+            if not duration:
+                messagebox.showerror('Помилка', 'Невірний формат тривалості! Використовуйте ГГ:ХХ')
+                return
+
+            # 🔹 Валідація ціни
+            if not price_str:
+                messagebox.showerror('Помилка', 'Поле ціни обов’язкове для заповнення!')
+                return
+            try:
+                price = float(price_str)
+                if price <= 0:
+                    raise ValueError
+            except ValueError:
+                messagebox.showerror('Помилка', 'Ціна повинна бути додатнім числом!')
+                return
+
+            # 🔹 Збереження
+            if db.update_excursion(
+                    excursion_id, entry_name.get(), entry_date.get(), duration, agency_id, price
+            ):
+                messagebox.showinfo('Успіх', 'Екскурсію оновлено')
+                form.destroy()
+                refresh()
             else:
-                messagebox.showerror('Помилка', 'Перевірте правильність введених даних')
-        
+                messagebox.showerror('Помилка', 'Не вдалося оновити екскурсію')
+
         tk.Button(form, text='Зберегти', command=save).grid(row=len(labels), column=0, columnspan=2)
         form.bind('<Return>', lambda e: save())
         form.bind('<Escape>', lambda e: form.destroy())
-    
+
     def delete_excursion():
         sel = tree.selection()
         if not sel:
