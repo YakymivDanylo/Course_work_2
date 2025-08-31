@@ -894,29 +894,64 @@ def show_cargo_window():
             tourist = tourists.get(c['tourist_id'], '')
             tree.insert('', 'end', values=(c['id'], tourist, c['places_count'], c['weight'], c['packing_cost'], c['insurance'], c['total']))
     refresh()
+
     def add_cargo():
         form = tk.Toplevel()
         form.title('Додати вантаж')
+
         tourists = db.get_tourists()
         combo_tourist = ttk.Combobox(form, values=[t['full_name'] for t in tourists])
+
         labels = ['К-сть валіз', 'Вага', 'Вартість упаковки', 'Страховка', 'Підсумок']
         entries = [tk.Entry(form) for _ in labels]
+
         tk.Label(form, text='Турист').grid(row=0, column=0)
         combo_tourist.grid(row=0, column=1)
+
         for i, l in enumerate(labels):
-            tk.Label(form, text=l).grid(row=i+1, column=0)
-            entries[i].grid(row=i+1, column=1)
+            tk.Label(form, text=l).grid(row=i + 1, column=0)
+            entries[i].grid(row=i + 1, column=1)
+
+        # Робимо підсумок тільки для читання
+        entries[4].config(state='readonly')
+
+        # Функція для автоматичного обчислення підсумку
+        def calculate_total():
+            try:
+                count = int(entries[0].get())
+                packing = float(entries[2].get())
+                insurance = float(entries[3].get())
+                total = count * (packing + insurance)
+                entries[4].config(state='normal')
+                entries[4].delete(0, tk.END)
+                entries[4].insert(0, f"{total:.2f}")
+                entries[4].config(state='readonly')
+            except ValueError:
+                entries[4].config(state='normal')
+                entries[4].delete(0, tk.END)
+                entries[4].insert(0, "0.00")
+                entries[4].config(state='readonly')
+
+        # Прив'язка обчислення підсумку до змін полів
+        for i in [0, 2, 3]:  # К-сть валіз, Вартість упаковки, Страховка
+            entries[i].bind('<KeyRelease>', lambda e: calculate_total())
+
         def save():
             tourist_id = tourists[combo_tourist.current()]['id'] if combo_tourist.current() >= 0 else None
-            if db.add_cargo(tourist_id, *(e.get() for e in entries)):
-                messagebox.showinfo('Успіх', 'Вантаж додано')
-                form.destroy(); refresh()
+            if all(validate_number(e.get()) for e in entries[:4]) and tourist_id:  # Перевіряємо тільки числові поля
+                if db.add_cargo(tourist_id, *(e.get() for e in entries)):
+                    messagebox.showinfo('Успіх', 'Вантаж додано')
+                    form.destroy();
+                    refresh()
+                else:
+                    messagebox.showerror('Помилка', 'Не вдалося додати вантаж')
             else:
-                messagebox.showerror('Помилка', 'Не вдалося додати вантаж')
-        tk.Button(form, text='Зберегти', command=save).grid(row=len(labels)+1, column=0, columnspan=2)
+                messagebox.showerror('Помилка', 'Перевірте правильність введених даних')
+
+        tk.Button(form, text='Зберегти', command=save).grid(row=len(labels) + 1, column=0, columnspan=2)
         form.bind('<Return>', lambda e: save())
         form.bind('<Escape>', lambda e: form.destroy())
-    
+
     def edit_cargo():
         sel = tree.selection()
         if not sel:
@@ -924,40 +959,70 @@ def show_cargo_window():
             return
         item = tree.item(sel[0])
         cargo_id = item['values'][0]
-        
+
         form = tk.Toplevel()
         form.title('Редагувати вантаж')
+
         tourists = db.get_tourists()
         combo_tourist = ttk.Combobox(form, values=[t['full_name'] for t in tourists])
+
         labels = ['К-сть валіз', 'Вага', 'Вартість упаковки', 'Страховка', 'Підсумок']
         entries = [tk.Entry(form) for _ in labels]
-        
-        # Заповнити поточними значеннями
+
+        # Заповнення поточними значеннями
         combo_tourist.set(item['values'][1])  # Турист
-        for i, value in enumerate(item['values'][2:7]):  # Пропустити ID та турист
+        for i, value in enumerate(item['values'][2:7]):  # Пропустити ID та туриста
             entries[i].insert(0, str(value))
-        
+
         tk.Label(form, text='Турист').grid(row=0, column=0)
         combo_tourist.grid(row=0, column=1)
+
         for i, l in enumerate(labels):
-            tk.Label(form, text=l).grid(row=i+1, column=0)
-            entries[i].grid(row=i+1, column=1)
-        
+            tk.Label(form, text=l).grid(row=i + 1, column=0)
+            entries[i].grid(row=i + 1, column=1)
+
+        # Робимо підсумок тільки для читання
+        entries[4].config(state='readonly')
+
+        # Функція для обчислення підсумку
+        def calculate_total():
+            try:
+                count = int(entries[0].get())
+                packing = float(entries[2].get())
+                insurance = float(entries[3].get())
+                total = count * (packing + insurance)
+                entries[4].config(state='normal')
+                entries[4].delete(0, tk.END)
+                entries[4].insert(0, f"{total:.2f}")
+                entries[4].config(state='readonly')
+            except ValueError:
+                entries[4].config(state='normal')
+                entries[4].delete(0, tk.END)
+                entries[4].insert(0, "0.00")
+                entries[4].config(state='readonly')
+
+        # Прив'язка обчислення підсумку до змін полів
+        for i in [0, 2, 3]:
+            entries[i].bind('<KeyRelease>', lambda e: calculate_total())
+
+        calculate_total()  # щоб підсумок відобразився одразу при відкритті
+
         def save():
             tourist_id = tourists[combo_tourist.current()]['id'] if combo_tourist.current() >= 0 else None
-            if all(validate_number(e.get()) for e in entries) and tourist_id:
+            if all(validate_number(e.get()) for e in entries[:4]) and tourist_id:
                 if db.update_cargo(cargo_id, tourist_id, *(e.get() for e in entries)):
                     messagebox.showinfo('Успіх', 'Вантаж оновлено')
-                    form.destroy(); refresh()
+                    form.destroy();
+                    refresh()
                 else:
                     messagebox.showerror('Помилка', 'Не вдалося оновити вантаж')
             else:
                 messagebox.showerror('Помилка', 'Перевірте правильність введених даних')
-        
-        tk.Button(form, text='Зберегти', command=save).grid(row=len(labels)+1, column=0, columnspan=2)
+
+        tk.Button(form, text='Зберегти', command=save).grid(row=len(labels) + 1, column=0, columnspan=2)
         form.bind('<Return>', lambda e: save())
         form.bind('<Escape>', lambda e: form.destroy())
-    
+
     def delete_cargo():
         sel = tree.selection()
         if not sel:
