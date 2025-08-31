@@ -750,15 +750,42 @@ def show_excursion_window():
 def show_agency_window():
     win = tk.Toplevel()
     win.title('Агентства')
+
     tree = ttk.Treeview(win, columns=('ID', 'Назва', 'Контакти'), show='headings')
     for col in ('ID', 'Назва', 'Контакти'):
         tree.heading(col, text=col)
-    tree.pack(fill='both', expand=True)
+        tree.column(col, anchor='center')  # центрування для кращого вигляду
+
+    tree.pack(fill='both', expand=True, padx=10, pady=10)
+
     def refresh():
-        for i in tree.get_children(): tree.delete(i)
+        for i in tree.get_children():
+            tree.delete(i)
         for a in db.get_excursion_agencies():
             tree.insert('', 'end', values=(a['id'], a['name'], a['contact_info']))
+
+        # Оновлюємо розміри вікна після завантаження даних
+        win.update_idletasks()
+        win.geometry(f"{tree.winfo_reqwidth() + 40}x{tree.winfo_reqheight() + 40}")
+
     refresh()
+
+    def validate_contacts(value):
+        """Перевірка, що введено телефон або email."""
+        value = value.strip()
+        if not value:
+            return False
+
+        # Простий патерн для телефону (+380XXXXXXXXX)
+        phone_pattern = re.compile(r'(\+?\d{10,13})')
+        # Простий патерн для email
+        email_pattern = re.compile(r'^[\w\.-]+@[\w\.-]+\.\w+$')
+
+        # Перевірка
+        if phone_pattern.search(value) or email_pattern.search(value):
+            return True
+        return False
+
     def add_agency():
         form = tk.Toplevel()
         form.title('Додати агентство')
@@ -767,16 +794,29 @@ def show_agency_window():
         for i, l in enumerate(labels):
             tk.Label(form, text=l).grid(row=i, column=0)
             entries[i].grid(row=i, column=1)
+
         def save():
-            if db.add_excursion_agency(*(e.get() for e in entries)):
+            name = entries[0].get().strip()
+            contacts = entries[1].get().strip()
+
+            if not name:
+                messagebox.showerror('Помилка', 'Заповніть назву агентства')
+                return
+            if not validate_contacts(contacts):
+                messagebox.showerror('Помилка', 'Вкажіть хоча б телефон або email')
+                return
+
+            if db.add_excursion_agency(name, contacts):
                 messagebox.showinfo('Успіх', 'Агентство додано')
-                form.destroy(); refresh()
+                form.destroy();
+                refresh()
             else:
                 messagebox.showerror('Помилка', 'Не вдалося додати агентство')
+
         tk.Button(form, text='Зберегти', command=save).grid(row=len(labels), column=0, columnspan=2)
         form.bind('<Return>', lambda e: save())
         form.bind('<Escape>', lambda e: form.destroy())
-    
+
     def edit_agency():
         sel = tree.selection()
         if not sel:
@@ -784,34 +824,42 @@ def show_agency_window():
             return
         item = tree.item(sel[0])
         agency_id = item['values'][0]
-        
+
         form = tk.Toplevel()
         form.title('Редагувати агентство')
         labels = ['Назва', 'Контакти']
         entries = [tk.Entry(form) for _ in labels]
-        
-        # Заповнити поточними значеннями
+
+        # Заповнення поточними значеннями
         entries[0].insert(0, item['values'][1])
         entries[1].insert(0, item['values'][2])
-        
+
         for i, l in enumerate(labels):
             tk.Label(form, text=l).grid(row=i, column=0)
             entries[i].grid(row=i, column=1)
-        
+
         def save():
-            if validate_required(entries[0].get()):
-                if db.update_excursion_agency(agency_id, *(e.get() for e in entries)):
-                    messagebox.showinfo('Успіх', 'Агентство оновлено')
-                    form.destroy(); refresh()
-                else:
-                    messagebox.showerror('Помилка', 'Не вдалося оновити агентство')
-            else:
+            name = entries[0].get().strip()
+            contacts = entries[1].get().strip()
+
+            if not name:
                 messagebox.showerror('Помилка', 'Заповніть назву агентства')
-        
+                return
+            if not validate_contacts(contacts):
+                messagebox.showerror('Помилка', 'Вкажіть хоча б телефон або email')
+                return
+
+            if db.update_excursion_agency(agency_id, name, contacts):
+                messagebox.showinfo('Успіх', 'Агентство оновлено')
+                form.destroy();
+                refresh()
+            else:
+                messagebox.showerror('Помилка', 'Не вдалося оновити агентство')
+
         tk.Button(form, text='Зберегти', command=save).grid(row=len(labels), column=0, columnspan=2)
         form.bind('<Return>', lambda e: save())
         form.bind('<Escape>', lambda e: form.destroy())
-    
+
     def delete_agency():
         sel = tree.selection()
         if not sel:
