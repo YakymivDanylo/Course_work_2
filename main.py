@@ -1175,70 +1175,138 @@ def show_group_window():
         tk.Button(form, text='Зберегти', command=save).grid(row=3, column=0, columnspan=2)
     tk.Button(win, text='Додати', command=add_group).pack()
 
-
 # --- Show group members and add tourists to group ---
 def show_group_members_window():
     win = tk.Toplevel()
-    win.title('Туристи в групі')
+    win.title('Учасники груп')
 
-    groups = db.get_tourist_groups()
-    group_ids = [g['id'] for g in groups]
-    group_names = [g['group_identifier'] for g in groups]
-
-    combo = ttk.Combobox(win, values=group_names)
-    combo.grid(row=0, column=0, columnspan=2)
-
-    tree = ttk.Treeview(win, columns=('ID', 'ПІБ', 'Паспорт'), show='headings')
-    for col in ('ID', 'ПІБ', 'Паспорт'):
+    # Таблиця учасників груп (без телефону)
+    tree = ttk.Treeview(win, columns=('ID', 'Група', 'Турист', 'Паспорт'), show='headings')
+    for col in ('ID', 'Група', 'Турист', 'Паспорт'):
         tree.heading(col, text=col)
-    tree.grid(row=1, column=0, columnspan=2)
+    tree.pack(fill='both', expand=True)
 
-    def refresh_members():
+    # Функція оновлення даних
+    def refresh():
         for i in tree.get_children():
             tree.delete(i)
-        idx = combo.current()
-        if idx < 0:
-            return
-        group_id = group_ids[idx]
-        tourists = db.get_tourists_in_group(group_id)
-        for t in tourists:
-            tree.insert('', 'end', values=(t['id'], t['full_name'], t['passport']))
 
+        groups_dict = {g['id']: g['group_identifier'] for g in db.get_tourist_groups()}
+        tourists_dict = {t['id']: t for t in db.get_tourists()}
+
+        # Отримати всі зв'язки груп і туристів
+        all_groups = db.get_tourist_groups()
+        for group in all_groups:
+            tourists_in_group = db.get_tourists_in_group(group['id'])
+            for tourist in tourists_in_group:
+                tree.insert('', 'end', values=(
+                    f"{group['id']}-{tourist['id']}",  # Унікальний ID для зв'язку
+                    groups_dict.get(group['id'], ''),
+                    tourist['full_name'],
+                    tourist['passport']
+                ))
+
+    refresh()
+
+    # Форма додавання туриста до групи
     def add_member():
-        idx = combo.current()
-        if idx < 0:
-            messagebox.showerror('Помилка', 'Оберіть групу')
-            return
-        group_id = group_ids[idx]
+        form = tk.Toplevel()
+        form.title('Додати туриста до групи')
 
+        groups = db.get_tourist_groups()
         tourists = db.get_tourists()
-        tourist_names = [t['full_name'] for t in tourists]
 
-        def save_member():
-            t_idx = tourist_combo.current()
-            if t_idx < 0:
-                messagebox.showerror('Помилка', 'Оберіть туриста')
+        combo_group = ttk.Combobox(form, values=[g['group_identifier'] for g in groups])
+        combo_tourist = ttk.Combobox(form, values=[t['full_name'] for t in tourists])
+
+        # Розташування полів
+        tk.Label(form, text='Група').grid(row=0, column=0)
+        combo_group.grid(row=0, column=1)
+        tk.Label(form, text='Турист').grid(row=1, column=0)
+        combo_tourist.grid(row=1, column=1)
+
+        # Функція збереження
+        def save():
+            group_index = combo_group.current()
+            tourist_index = combo_tourist.current()
+
+            group_id = groups[group_index]['id'] if group_index >= 0 else None
+            tourist_id = tourists[tourist_index]['id'] if tourist_index >= 0 else None
+
+            # Перевірки
+            if group_id is None:
+                messagebox.showwarning('Помилка', 'Оберіть групу')
                 return
-            tourist_id = tourists[t_idx]['id']
+            if tourist_id is None:
+                messagebox.showwarning('Помилка', 'Оберіть туриста')
+                return
+
+            # Перевірка чи турист вже є в групі
+            tourists_in_group = db.get_tourists_in_group(group_id)
+            if any(t['id'] == tourist_id for t in tourists_in_group):
+                messagebox.showwarning('Помилка', 'Турист вже є в цій групі')
+                return
+
+            # Додавання туриста до групи
             if db.add_tourist_to_group(group_id, tourist_id):
                 messagebox.showinfo('Успіх', 'Туриста додано до групи')
-                member_form.destroy()
-                refresh_members()
+                form.destroy()
+                refresh()
             else:
-                messagebox.showerror('Помилка', 'Не вдалося додати туриста')
+                messagebox.showerror('Помилка', 'Не вдалося додати туриста до групи')
 
-        member_form = tk.Toplevel()
-        member_form.title('Додати туриста до групи')
-        tk.Label(member_form, text='Турист').grid(row=0, column=0)
-        tourist_combo = ttk.Combobox(member_form, values=tourist_names)
-        tourist_combo.grid(row=0, column=1)
-        tk.Button(member_form, text='Додати', command=save_member).grid(row=1, column=0, columnspan=2)
+        tk.Button(form, text='Зберегти', command=save).grid(row=2, column=0, columnspan=2)
 
-    combo.bind('<<ComboboxSelected>>', lambda e: refresh_members())
+    # Функція видалення туриста з групи
+    def remove_member():
+        selected_item = tree.selection()
+        if not selected_item:
+            messagebox.showwarning('Помилка', 'Оберіть запис для видалення')
+            return
 
-    tk.Button(win, text='Додати туриста до групи', command=add_member).grid(row=2, column=0, columnspan=2)
+        # Отримати дані з вибраного рядка
+        item_values = tree.item(selected_item[0])['values']
+        group_name = item_values[1]
+        tourist_name = item_values[2]
 
-    refresh_members()
+        # Знайти group_id та tourist_id
+        groups = db.get_tourist_groups()
+        tourists = db.get_tourists()
+
+        group_id = None
+        tourist_id = None
+
+        for group in groups:
+            if group['group_identifier'] == group_name:
+                group_id = group['id']
+                break
+
+        for tourist in tourists:
+            if tourist['full_name'] == tourist_name:
+                tourist_id = tourist['id']
+                break
+
+        if group_id is None or tourist_id is None:
+            messagebox.showerror('Помилка', 'Не вдалося знайти групу або туриста')
+            return
+
+        # Підтвердження видалення
+        result = messagebox.askyesno('Підтвердження',
+                                     f'Видалити туриста "{tourist_name}" з групи "{group_name}"?')
+
+        if result:
+            if db.remove_tourist_from_group(group_id, tourist_id):
+                messagebox.showinfo('Успіх', 'Туриста видалено з групи')
+                refresh()
+            else:
+                messagebox.showerror('Помилка', 'Не вдалося видалити туриста з групи')
+
+    # Кнопки
+    button_frame = tk.Frame(win)
+    button_frame.pack(pady=5)
+
+    tk.Button(button_frame, text='Додати', command=add_member).pack(side='left', padx=5)
+    tk.Button(button_frame, text='Видалити', command=remove_member).pack(side='left', padx=5)
 
 
 # --- Авіарейси ---
@@ -1254,9 +1322,11 @@ def show_flight_window():
         for f in db.get_flights():
             tree.insert('', 'end', values=(f['id'], f['flight_number'], f['date'], f['seats_count'], f['free_seats'], f['cargo_weight'], f['plane_class']))
     refresh()
+
     def add_flight():
         form = tk.Toplevel()
         form.title('Додати авіарейс')
+
         labels = ['Номер рейсу', 'Дата', 'К-сть місць', 'Вільні місця', 'Вага вантажу', 'Клас літака']
         entry_number = tk.Entry(form)
         entry_date = DateEntry(form, date_pattern='yyyy-mm-dd')
@@ -1264,17 +1334,45 @@ def show_flight_window():
         entry_free = tk.Entry(form)
         entry_weight = tk.Entry(form)
         entry_class = tk.Entry(form)
+
         widgets = [entry_number, entry_date, entry_seats, entry_free, entry_weight, entry_class]
         for i, l in enumerate(labels):
-            tk.Label(form, text=l).grid(row=i, column=0)
-            widgets[i].grid(row=i, column=1)
+            tk.Label(form, text=l).grid(row=i, column=0, padx=5, pady=5, sticky='w')
+            widgets[i].grid(row=i, column=1, padx=5, pady=5)
+
         def save():
-            if db.add_flight(entry_number.get(), entry_date.get(), entry_seats.get(), entry_free.get(), entry_weight.get(), entry_class.get()):
+            # перевірка заповненості
+            values = [w.get() for w in widgets]
+            if any(v.strip() == '' for v in values):
+                messagebox.showerror('Помилка', 'Усі поля мають бути заповнені!')
+                return
+
+            # перевірка числових значень
+            try:
+                seats = int(entry_seats.get())
+                free = int(entry_free.get())
+                weight = float(entry_weight.get())
+            except ValueError:
+                messagebox.showerror('Помилка',
+                                     'Поля "К-сть місць", "Вільні місця" та "Вага вантажу" мають містити тільки числа!')
+                return
+
+            # логічна перевірка кількості
+            if free > seats:
+                messagebox.showerror('Помилка',
+                                     'Кількість вільних місць не може перевищувати загальну кількість місць!')
+                return
+
+            # збереження у БД
+            if db.add_flight(entry_number.get(), entry_date.get(), seats, free, weight, entry_class.get()):
                 messagebox.showinfo('Успіх', 'Авіарейс додано')
-                form.destroy(); refresh()
+                form.destroy()
+                refresh()
             else:
                 messagebox.showerror('Помилка', 'Не вдалося додати авіарейс')
-        tk.Button(form, text='Зберегти', command=save).grid(row=len(labels), column=0, columnspan=2)
+
+        tk.Button(form, text='Зберегти', command=save).grid(row=len(labels), column=0, columnspan=2, pady=10)
+
     tk.Button(win, text='Додати', command=add_flight).pack()
 
 # --- Фінансові звіти ---
@@ -1304,13 +1402,41 @@ def show_financial_window():
         for i, l in enumerate(labels):
             tk.Label(form, text=l).grid(row=i+1, column=0)
             entries[i].grid(row=i+1, column=1)
+
         def save():
-            group_id = groups[combo_group.current()]['id'] if combo_group.current() >= 0 else None
-            if db.add_financial_report(group_id, *(e.get() for e in entries)):
+            # Перевірка чи вибрано групу
+            if combo_group.current() < 0:
+                messagebox.showerror('Помилка', 'Оберіть групу')
+                return
+
+            values = []
+            labels_ua = ['Дохід', 'Готель', 'Транспорт', 'Екскурсії', 'Аеропорт', 'Вантаж']
+
+            # Перевірка всіх полів
+            for i, e in enumerate(entries):
+                val = e.get().strip()
+                if not val:
+                    messagebox.showerror('Помилка', f'Поле "{labels_ua[i]}" не може бути порожнім')
+                    return
+                try:
+                    num = float(val)
+                    if num < 0:
+                        messagebox.showerror('Помилка', f'Поле "{labels_ua[i]}" не може бути відʼємним')
+                        return
+                    values.append(num)
+                except ValueError:
+                    messagebox.showerror('Помилка', f'Поле "{labels_ua[i]}" повинно бути числом')
+                    return
+
+            group_id = groups[combo_group.current()]['id']
+
+            if db.add_financial_report(group_id, *values):
                 messagebox.showinfo('Успіх', 'Звіт додано')
-                form.destroy(); refresh()
+                form.destroy()
+                refresh()
             else:
                 messagebox.showerror('Помилка', 'Не вдалося додати звіт')
+
         tk.Button(form, text='Зберегти', command=save).grid(row=len(labels)+1, column=0, columnspan=2)
     tk.Button(win, text='Додати', command=add_financial).pack()
 
@@ -1880,11 +2006,12 @@ def show_financial_view_window():
 #     tk.Button(button_frame, text='Видалити', command=delete_weight_list).pack(side='left')
 
 # --- Аеропортні операції ---
+
 def show_airport_operations_window():
     win = tk.Toplevel()
     win.title('Аеропортні операції')
-    tree = ttk.Treeview(win, columns=('ID', 'Рейс', 'Тип операції', 'Опис', 'Вартість', 'Дата'), show='headings')
-    for col in ('ID', 'Рейс', 'Тип операції', 'Опис', 'Вартість', 'Дата'):
+    tree = ttk.Treeview(win, columns=('ID', 'Рейс', 'Тип операції', 'Опис', 'Вартість(грн)', 'Дата'), show='headings')
+    for col in ('ID', 'Рейс', 'Тип операції', 'Опис', 'Вартість(грн)', 'Дата'):
         tree.heading(col, text=col)
     tree.pack(fill='both', expand=True)
     def refresh():
@@ -1909,18 +2036,46 @@ def show_airport_operations_window():
         for i, l in enumerate(labels):
             tk.Label(form, text=l).grid(row=i, column=0)
             widgets[i].grid(row=i, column=1)
-        
+
         def save():
-            flight_id = flights[combo_flight.current()]['id'] if combo_flight.current() >= 0 else None
-            if validate_number(entry_cost.get()) and flight_id and combo_type.get():
-                if db.add_airport_operation(flight_id, combo_type.get(), entry_description.get(), entry_cost.get()):
-                    messagebox.showinfo('Успіх', 'Аеропортну операцію додано')
-                    form.destroy(); refresh()
-                else:
-                    messagebox.showerror('Помилка', 'Не вдалося додати аеропортну операцію')
-            else:
-                messagebox.showerror('Помилка', 'Перевірте правильність введених даних')
-        
+            # Перевірка рейсу
+            if combo_flight.current() < 0:
+                messagebox.showerror('Помилка', 'Оберіть рейс')
+                return
+
+            # Перевірка типу операції
+            if not combo_type.get().strip():
+                messagebox.showerror('Помилка', 'Оберіть тип операції')
+                return
+
+            # Перевірка вартості
+            cost_str = entry_cost.get().strip()
+            if not cost_str:
+                messagebox.showerror('Помилка', 'Вкажіть вартість')
+                return
+            try:
+                cost = float(cost_str)
+                if cost < 0:
+                    messagebox.showerror('Помилка', 'Вартість не може бути відʼємною')
+                    return
+            except ValueError:
+                messagebox.showerror('Помилка', 'Вартість повинна бути числом')
+                return
+
+            # Опис (опційно, але можна перевірити на порожнечу)
+            description = entry_description.get().strip()
+            if not description:
+                description = ''  # або можна вимагати введення
+
+            flight_id = flights[combo_flight.current()]['id']
+
+            # Виклик БД (для додавання або редагування)
+            if db.add_airport_operation(flight_id, combo_type.get(), description, cost):  # для add
+                messagebox.showinfo('Успіх', 'Аеропортну операцію додано')
+                form.destroy()
+                refresh()
+            # Для редагування замінити на update_airport_operation(operation_id, ...)
+
         tk.Button(form, text='Зберегти', command=save).grid(row=len(labels), column=0, columnspan=2)
         form.bind('<Return>', lambda e: save())
         form.bind('<Escape>', lambda e: form.destroy())
@@ -1940,30 +2095,65 @@ def show_airport_operations_window():
         combo_type = ttk.Combobox(form, values=['Прийом', 'Розвантаження', 'Зліт', 'Посадка', 'Диспетчерські послуги'])
         entry_description = tk.Entry(form)
         entry_cost = tk.Entry(form)
-        
-        # Заповнити поточними значеннями
+
+        # Встановлюємо поточні значення
         combo_type.set(item['values'][2])
         entry_description.insert(0, item['values'][3])
         entry_cost.insert(0, item['values'][4])
-        
+
+        # Встановлюємо рейс
+        combo_flight.set(item['values'][1])
+
         labels = ['Рейс', 'Тип операції', 'Опис', 'Вартість']
         widgets = [combo_flight, combo_type, entry_description, entry_cost]
         
         for i, l in enumerate(labels):
             tk.Label(form, text=l).grid(row=i, column=0)
             widgets[i].grid(row=i, column=1)
-        
+
         def save():
-            flight_id = flights[combo_flight.current()]['id'] if combo_flight.current() >= 0 else None
-            if validate_number(entry_cost.get()) and flight_id and combo_type.get():
-                if db.update_airport_operation(operation_id, flight_id, combo_type.get(), entry_description.get(), entry_cost.get()):
-                    messagebox.showinfo('Успіх', 'Аеропортну операцію оновлено')
-                    form.destroy(); refresh()
-                else:
-                    messagebox.showerror('Помилка', 'Не вдалося оновити аеропортну операцію')
+            # Перевірка рейсу
+            if combo_flight.current() < 0:
+                messagebox.showerror('Помилка', 'Оберіть рейс')
+                return
+
+            # Перевірка типу операції
+            if not combo_type.get().strip():
+                messagebox.showerror('Помилка', 'Оберіть тип операції')
+                return
+
+            # Перевірка вартості
+            cost_str = entry_cost.get().strip()
+            if not cost_str:
+                messagebox.showerror('Помилка', 'Вкажіть вартість')
+                return
+            try:
+                cost = float(cost_str)
+                if cost < 0:
+                    messagebox.showerror('Помилка', 'Вартість не може бути відʼємною')
+                    return
+            except ValueError:
+                messagebox.showerror('Помилка', 'Вартість повинна бути числом')
+                return
+
+            # Опис (опційно, але можна перевірити на порожнечу)
+            description = entry_description.get().strip()
+            if not description:
+                description = ''  # або можна вимагати введення
+
+            flight_id = flights[combo_flight.current()]['id']
+
+            # Виклик БД (для додавання або редагування)
+            # Виклик БД для редагування
+            if db.update_airport_operation(operation_id, flight_id, combo_type.get(), description, cost):
+                messagebox.showinfo('Успіх', 'Аеропортну операцію оновлено')
+                form.destroy()
+                refresh()
             else:
-                messagebox.showerror('Помилка', 'Перевірте правильність введених даних')
-        
+                messagebox.showerror('Помилка', 'Не вдалося оновити аеропортну операцію')
+
+            # Для редагування замінити на update_airport_operation(operation_id, ...)
+
         tk.Button(form, text='Зберегти', command=save).grid(row=len(labels), column=0, columnspan=2)
         form.bind('<Return>', lambda e: save())
         form.bind('<Escape>', lambda e: form.destroy())
@@ -2049,7 +2239,14 @@ def show_customs_procedures_window():
         combo_type = ttk.Combobox(form, values=['Декларація', 'Перевірка', 'Проблема'])
         entry_description = tk.Entry(form)
         combo_status = ttk.Combobox(form, values=['Завершено', 'В процесі', 'Проблема'])
-        
+
+        # Заповнити поточними значеннями
+        current_tourist_name = item['values'][1]
+        for idx, t in enumerate(tourists):
+            if t['full_name'] == current_tourist_name:
+                combo_tourist.current(idx)
+                break
+
         # Заповнити поточними значеннями
         combo_type.set(item['values'][2])
         entry_description.insert(0, item['values'][3])
