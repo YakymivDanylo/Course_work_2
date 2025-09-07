@@ -80,9 +80,9 @@ def show_main_menu():
         tk.Button(main_win, text='Вантаж', command=show_cargo_window).pack(fill='x')
         tk.Button(main_win, text='Візи', command=show_visa_window).pack(fill='x')
         tk.Button(main_win, text='Групи туристів', command=show_group_window).pack(fill='x')
+        tk.Button(main_win, text='Туриста в групах', command=show_group_members_window).pack(fill='x')
         tk.Button(main_win, text='Авіарейси', command=show_flight_window).pack(fill='x')
         tk.Button(main_win, text='Фінансові звіти', command=show_financial_window).pack(fill='x')
-        tk.Button(main_win, text='Вагові відомості', command=show_weight_list_window).pack(fill='x')
         tk.Button(main_win, text='Аеропортні операції', command=show_airport_operations_window).pack(fill='x')
         tk.Button(main_win, text='Митничні процедури', command=show_customs_procedures_window).pack(fill='x')
     
@@ -181,7 +181,7 @@ def show_users_window():
         tree.insert('', 'end', values=(u['id'], u['login'], u['role']))
     # Додати редагування/видалення за потреби
 
-# --- CRUD-екрани для всіх сутностей ---
+# --- CRUD-екрани для всіх сутностей ---    
 # Приклад для Туристів (аналогічно для інших)
 def show_tourist_window():
     win = tk.Toplevel()
@@ -1175,6 +1175,72 @@ def show_group_window():
         tk.Button(form, text='Зберегти', command=save).grid(row=3, column=0, columnspan=2)
     tk.Button(win, text='Додати', command=add_group).pack()
 
+
+# --- Show group members and add tourists to group ---
+def show_group_members_window():
+    win = tk.Toplevel()
+    win.title('Туристи в групі')
+
+    groups = db.get_tourist_groups()
+    group_ids = [g['id'] for g in groups]
+    group_names = [g['group_identifier'] for g in groups]
+
+    combo = ttk.Combobox(win, values=group_names)
+    combo.grid(row=0, column=0, columnspan=2)
+
+    tree = ttk.Treeview(win, columns=('ID', 'ПІБ', 'Паспорт'), show='headings')
+    for col in ('ID', 'ПІБ', 'Паспорт'):
+        tree.heading(col, text=col)
+    tree.grid(row=1, column=0, columnspan=2)
+
+    def refresh_members():
+        for i in tree.get_children():
+            tree.delete(i)
+        idx = combo.current()
+        if idx < 0:
+            return
+        group_id = group_ids[idx]
+        tourists = db.get_tourists_in_group(group_id)
+        for t in tourists:
+            tree.insert('', 'end', values=(t['id'], t['full_name'], t['passport']))
+
+    def add_member():
+        idx = combo.current()
+        if idx < 0:
+            messagebox.showerror('Помилка', 'Оберіть групу')
+            return
+        group_id = group_ids[idx]
+
+        tourists = db.get_tourists()
+        tourist_names = [t['full_name'] for t in tourists]
+
+        def save_member():
+            t_idx = tourist_combo.current()
+            if t_idx < 0:
+                messagebox.showerror('Помилка', 'Оберіть туриста')
+                return
+            tourist_id = tourists[t_idx]['id']
+            if db.add_tourist_to_group(group_id, tourist_id):
+                messagebox.showinfo('Успіх', 'Туриста додано до групи')
+                member_form.destroy()
+                refresh_members()
+            else:
+                messagebox.showerror('Помилка', 'Не вдалося додати туриста')
+
+        member_form = tk.Toplevel()
+        member_form.title('Додати туриста до групи')
+        tk.Label(member_form, text='Турист').grid(row=0, column=0)
+        tourist_combo = ttk.Combobox(member_form, values=tourist_names)
+        tourist_combo.grid(row=0, column=1)
+        tk.Button(member_form, text='Додати', command=save_member).grid(row=1, column=0, columnspan=2)
+
+    combo.bind('<<ComboboxSelected>>', lambda e: refresh_members())
+
+    tk.Button(win, text='Додати туриста до групи', command=add_member).grid(row=2, column=0, columnspan=2)
+
+    refresh_members()
+
+
 # --- Авіарейси ---
 def show_flight_window():
     win = tk.Toplevel()
@@ -1702,116 +1768,116 @@ def show_financial_view_window():
         tree.insert('', 'end', values=(f['id'], group, f['income'], f['expense_hotel'], f['expense_transport'], f['expense_excursion'], f['expense_airport'], f['expense_cargo']))
     tk.Label(win, text='Режим перегляду - редагування недоступне').pack()
 
-# --- Вагові відомості ---
-def show_weight_list_window():
-    win = tk.Toplevel()
-    win.title('Вагові відомості')
-    tree = ttk.Treeview(win, columns=('ID', 'Вантаж', 'Опис', 'Вага', 'Маркування', 'Тип упаковки', 'Дата'), show='headings')
-    for col in ('ID', 'Вантаж', 'Опис', 'Вага', 'Маркування', 'Тип упаковки', 'Дата'):
-        tree.heading(col, text=col)
-    tree.pack(fill='both', expand=True)
-    def refresh():
-        for i in tree.get_children(): tree.delete(i)
-        cargos = {c['id']: f"Вантаж #{c['id']}" for c in db.get_cargos()}
-        for w in db.get_weight_lists():
-            cargo = cargos.get(w['cargo_id'], '')
-            tree.insert('', 'end', values=(w['id'], cargo, w['item_description'], w['weight'], w['marking'], w['packaging_type'], w['created_date']))
-    refresh()
-    def add_weight_list():
-        form = tk.Toplevel()
-        form.title('Додати вагову відомість')
-        cargos = db.get_cargos()
-        combo_cargo = ttk.Combobox(form, values=[f"Вантаж #{c['id']}" for c in cargos])
-        entry_description = tk.Entry(form)
-        entry_weight = tk.Entry(form)
-        entry_marking = tk.Entry(form)
-        entry_packaging = tk.Entry(form)
-        
-        labels = ['Вантаж', 'Опис', 'Вага', 'Маркування', 'Тип упаковки']
-        widgets = [combo_cargo, entry_description, entry_weight, entry_marking, entry_packaging]
-        
-        for i, l in enumerate(labels):
-            tk.Label(form, text=l).grid(row=i, column=0)
-            widgets[i].grid(row=i, column=1)
-        
-        def save():
-            cargo_id = cargos[combo_cargo.current()]['id'] if combo_cargo.current() >= 0 else None
-            if validate_number(entry_weight.get()) and cargo_id:
-                if db.add_weight_list(cargo_id, entry_description.get(), entry_weight.get(), entry_marking.get(), entry_packaging.get()):
-                    messagebox.showinfo('Успіх', 'Вагову відомість додано')
-                    form.destroy(); refresh()
-                else:
-                    messagebox.showerror('Помилка', 'Не вдалося додати вагову відомість')
-            else:
-                messagebox.showerror('Помилка', 'Перевірте правильність введених даних')
-        
-        tk.Button(form, text='Зберегти', command=save).grid(row=len(labels), column=0, columnspan=2)
-        form.bind('<Return>', lambda e: save())
-        form.bind('<Escape>', lambda e: form.destroy())
-    
-    def edit_weight_list():
-        sel = tree.selection()
-        if not sel:
-            messagebox.showwarning('Попередження', 'Оберіть запис для редагування')
-            return
-        item = tree.item(sel[0])
-        weight_id = item['values'][0]
-        
-        form = tk.Toplevel()
-        form.title('Редагувати вагову відомість')
-        cargos = db.get_cargos()
-        combo_cargo = ttk.Combobox(form, values=[f"Вантаж #{c['id']}" for c in cargos])
-        entry_description = tk.Entry(form)
-        entry_weight = tk.Entry(form)
-        entry_marking = tk.Entry(form)
-        entry_packaging = tk.Entry(form)
-        
-        # Заповнити поточними значеннями
-        entry_description.insert(0, item['values'][2])
-        entry_weight.insert(0, item['values'][3])
-        entry_marking.insert(0, item['values'][4])
-        entry_packaging.insert(0, item['values'][5])
-        
-        labels = ['Вантаж', 'Опис', 'Вага', 'Маркування', 'Тип упаковки']
-        widgets = [combo_cargo, entry_description, entry_weight, entry_marking, entry_packaging]
-        
-        for i, l in enumerate(labels):
-            tk.Label(form, text=l).grid(row=i, column=0)
-            widgets[i].grid(row=i, column=1)
-        
-        def save():
-            cargo_id = cargos[combo_cargo.current()]['id'] if combo_cargo.current() >= 0 else None
-            if validate_number(entry_weight.get()) and cargo_id:
-                if db.update_weight_list(weight_id, cargo_id, entry_description.get(), entry_weight.get(), entry_marking.get(), entry_packaging.get()):
-                    messagebox.showinfo('Успіх', 'Вагову відомість оновлено')
-                    form.destroy(); refresh()
-                else:
-                    messagebox.showerror('Помилка', 'Не вдалося оновити вагову відомість')
-            else:
-                messagebox.showerror('Помилка', 'Перевірте правильність введених даних')
-        
-        tk.Button(form, text='Зберегти', command=save).grid(row=len(labels), column=0, columnspan=2)
-        form.bind('<Return>', lambda e: save())
-        form.bind('<Escape>', lambda e: form.destroy())
-    
-    def delete_weight_list():
-        sel = tree.selection()
-        if not sel:
-            messagebox.showwarning('Попередження', 'Оберіть запис для видалення')
-            return
-        if messagebox.askyesno('Підтвердження', 'Ви впевнені, що хочете видалити цю вагову відомість?'):
-            weight_id = tree.item(sel[0])['values'][0]
-            if db.delete_weight_list(weight_id):
-                messagebox.showinfo('Успіх', 'Вагову відомість видалено')
-                refresh()
-            else:
-                messagebox.showerror('Помилка', 'Не вдалося видалити вагову відомість')
-    
-    button_frame = tk.Frame(win)
-    button_frame.pack(fill='x')
-    tk.Button(button_frame, text='Додати', command=add_weight_list).pack(side='left')
-    tk.Button(button_frame, text='Редагувати', command=edit_weight_list).pack(side='left')
-    tk.Button(button_frame, text='Видалити', command=delete_weight_list).pack(side='left')
+# # --- Вагові відомості ---
+# def show_weight_list_window():
+#     win = tk.Toplevel()
+#     win.title('Вагові відомості')
+#     tree = ttk.Treeview(win, columns=('ID', 'Вантаж', 'Опис', 'Вага', 'Маркування', 'Тип упаковки', 'Дата'), show='headings')
+#     for col in ('ID', 'Вантаж', 'Опис', 'Вага', 'Маркування', 'Тип упаковки', 'Дата'):
+#         tree.heading(col, text=col)
+#     tree.pack(fill='both', expand=True)
+#     def refresh():
+#         for i in tree.get_children(): tree.delete(i)
+#         cargos = {c['id']: f"Вантаж #{c['id']}" for c in db.get_cargos()}
+#         for w in db.get_weight_lists():
+#             cargo = cargos.get(w['cargo_id'], '')
+#             tree.insert('', 'end', values=(w['id'], cargo, w['item_description'], w['weight'], w['marking'], w['packaging_type'], w['created_date']))
+#     refresh()
+#     def add_weight_list():
+#         form = tk.Toplevel()
+#         form.title('Додати вагову відомість')
+#         cargos = db.get_cargos()
+#         combo_cargo = ttk.Combobox(form, values=[f"Вантаж #{c['id']}" for c in cargos])
+#         entry_description = tk.Entry(form)
+#         entry_weight = tk.Entry(form)
+#         entry_marking = tk.Entry(form)
+#         entry_packaging = tk.Entry(form)
+#
+#         labels = ['Вантаж', 'Опис', 'Вага', 'Маркування', 'Тип упаковки']
+#         widgets = [combo_cargo, entry_description, entry_weight, entry_marking, entry_packaging]
+#
+#         for i, l in enumerate(labels):
+#             tk.Label(form, text=l).grid(row=i, column=0)
+#             widgets[i].grid(row=i, column=1)
+#
+#         def save():
+#             cargo_id = cargos[combo_cargo.current()]['id'] if combo_cargo.current() >= 0 else None
+#             if validate_number(entry_weight.get()) and cargo_id:
+#                 if db.add_weight_list(cargo_id, entry_description.get(), entry_weight.get(), entry_marking.get(), entry_packaging.get()):
+#                     messagebox.showinfo('Успіх', 'Вагову відомість додано')
+#                     form.destroy(); refresh()
+#                 else:
+#                     messagebox.showerror('Помилка', 'Не вдалося додати вагову відомість')
+#             else:
+#                 messagebox.showerror('Помилка', 'Перевірте правильність введених даних')
+#
+#         tk.Button(form, text='Зберегти', command=save).grid(row=len(labels), column=0, columnspan=2)
+#         form.bind('<Return>', lambda e: save())
+#         form.bind('<Escape>', lambda e: form.destroy())
+#
+#     def edit_weight_list():
+#         sel = tree.selection()
+#         if not sel:
+#             messagebox.showwarning('Попередження', 'Оберіть запис для редагування')
+#             return
+#         item = tree.item(sel[0])
+#         weight_id = item['values'][0]
+#
+#         form = tk.Toplevel()
+#         form.title('Редагувати вагову відомість')
+#         cargos = db.get_cargos()
+#         combo_cargo = ttk.Combobox(form, values=[f"Вантаж #{c['id']}" for c in cargos])
+#         entry_description = tk.Entry(form)
+#         entry_weight = tk.Entry(form)
+#         entry_marking = tk.Entry(form)
+#         entry_packaging = tk.Entry(form)
+#
+#         # Заповнити поточними значеннями
+#         entry_description.insert(0, item['values'][2])
+#         entry_weight.insert(0, item['values'][3])
+#         entry_marking.insert(0, item['values'][4])
+#         entry_packaging.insert(0, item['values'][5])
+#
+#         labels = ['Вантаж', 'Опис', 'Вага', 'Маркування', 'Тип упаковки']
+#         widgets = [combo_cargo, entry_description, entry_weight, entry_marking, entry_packaging]
+#
+#         for i, l in enumerate(labels):
+#             tk.Label(form, text=l).grid(row=i, column=0)
+#             widgets[i].grid(row=i, column=1)
+#
+#         def save():
+#             cargo_id = cargos[combo_cargo.current()]['id'] if combo_cargo.current() >= 0 else None
+#             if validate_number(entry_weight.get()) and cargo_id:
+#                 if db.update_weight_list(weight_id, cargo_id, entry_description.get(), entry_weight.get(), entry_marking.get(), entry_packaging.get()):
+#                     messagebox.showinfo('Успіх', 'Вагову відомість оновлено')
+#                     form.destroy(); refresh()
+#                 else:
+#                     messagebox.showerror('Помилка', 'Не вдалося оновити вагову відомість')
+#             else:
+#                 messagebox.showerror('Помилка', 'Перевірте правильність введених даних')
+#
+#         tk.Button(form, text='Зберегти', command=save).grid(row=len(labels), column=0, columnspan=2)
+#         form.bind('<Return>', lambda e: save())
+#         form.bind('<Escape>', lambda e: form.destroy())
+#
+#     def delete_weight_list():
+#         sel = tree.selection()
+#         if not sel:
+#             messagebox.showwarning('Попередження', 'Оберіть запис для видалення')
+#             return
+#         if messagebox.askyesno('Підтвердження', 'Ви впевнені, що хочете видалити цю вагову відомість?'):
+#             weight_id = tree.item(sel[0])['values'][0]
+#             if db.delete_weight_list(weight_id):
+#                 messagebox.showinfo('Успіх', 'Вагову відомість видалено')
+#                 refresh()
+#             else:
+#                 messagebox.showerror('Помилка', 'Не вдалося видалити вагову відомість')
+#
+#     button_frame = tk.Frame(win)
+#     button_frame.pack(fill='x')
+#     tk.Button(button_frame, text='Додати', command=add_weight_list).pack(side='left')
+#     tk.Button(button_frame, text='Редагувати', command=edit_weight_list).pack(side='left')
+#     tk.Button(button_frame, text='Видалити', command=delete_weight_list).pack(side='left')
 
 # --- Аеропортні операції ---
 def show_airport_operations_window():

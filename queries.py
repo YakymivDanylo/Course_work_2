@@ -1194,3 +1194,56 @@ def get_request_by_id(request_id):
         return None
     finally:
         conn.close()
+
+# --- CRUD functions for touristgroupmember ---
+def add_tourist_to_group(group_id, tourist_id):
+    conn = get_connection()
+    if not conn:
+        return False
+    try:
+        with conn.cursor() as cur:
+            cur.execute('''
+                INSERT INTO touristgroupmember (group_id, tourist_id) VALUES (%s, %s)
+            ''', (group_id, tourist_id))
+            conn.commit()
+        return True
+    except Exception as e:
+        print('Error adding tourist to group:', e)
+        return False
+    finally:
+        conn.close()
+
+def get_tourists_in_group(group_id):
+    conn = get_connection()
+    if not conn:
+        return []
+    try:
+        with conn.cursor(cursor_factory=extras.DictCursor) as cur:
+            cur.execute('''
+                SELECT t.* FROM tourist t
+                JOIN touristgroupmember tg ON t.id = tg.tourist_id
+                WHERE tg.group_id = %s
+            ''', (group_id,))
+            return cur.fetchall()
+    except Exception as e:
+        print('Error getting tourists in group:', e)
+        return []
+    finally:
+        conn.close()
+
+def remove_tourist_from_group(group_id, tourist_id):
+    conn = get_connection()
+    if not conn:
+        return False
+    try:
+        with conn.cursor() as cur:
+            cur.execute('''
+                DELETE FROM touristgroupmember WHERE group_id = %s AND tourist_id = %s
+            ''', (group_id, tourist_id))
+            conn.commit()
+        return True
+    except Exception as e:
+        print('Error removing tourist from group:', e)
+        return False
+    finally:
+        conn.close()
