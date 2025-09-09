@@ -1522,10 +1522,27 @@ def show_queries_window():
         date_to.grid(row=1, column=1)
 
         def run():
+            FIELD_NAMES = {
+                'id': 'ID',
+                'full_name': 'ПІБ',
+                'passport': 'Паспорт',
+                'gender': 'Стать',
+                'age': 'Вік',
+                'category': 'Категорія',
+                'children_info': 'Діти',
+                'trips_count': 'Кількість поїздок',
+                'arrivals': 'Дати прибуття',
+                'departures': 'Дати відбуття',
+                'hotels': 'Готелі',
+                'excursions': 'Екскурсії',
+                'cargos': 'Вантаж',
+                # додайте інші поля по потребі
+            }
+
             res = db.get_financial_by_period(date_from.get(), date_to.get())
             if res:
-                columns = list(res[0].keys()) if isinstance(res, list) and len(res) > 0 else []
-                data = [tuple(item[col] for col in columns) for item in res] if columns else []
+                columns = [FIELD_NAMES.get(k, k) for k in res[0].keys()]  # красиві назви
+                data = [tuple(item[k] for k in res[0].keys()) for item in res]
             else:
                 columns = []
                 data = []
