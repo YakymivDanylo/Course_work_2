@@ -1797,16 +1797,52 @@ def show_queries_window():
         tk.Label(form, text='Група').grid(row=0, column=0)
 
         def run():
+            # Словник для перетворення технічних назв полів в зрозумілі користувацькі
+            FIELD_NAMES = {
+                'id': 'ID',
+                'group_id': 'ID групи',
+                'income': 'Дохід',
+                'profit': 'Прибуток',
+                'expense_hotel': 'Витрати на готель',
+                'expense_transport': 'Витрати на транспорт',
+                'expense_excursion': 'Витрати на екскурсії',
+                'expense_equipment': 'Витрати на спорядження',
+                'expense_cargo': 'Витрати на вантаж',
+                'expense_airport': 'Витрати на аеропорт',
+                'total_income': 'Загальний дохід',
+                'total_expenses': 'Загальні витрати',
+                'group_identifier': 'Ідентифікатор групи',
+                'tourists_count': 'Кількість туристів',
+                'start_date': 'Дата початку',
+                'end_date': 'Дата завершення'
+            }
+
             group_id = groups[combo.current()]['id'] if combo.current() >= 0 else None
             res = db.get_group_financial_report(group_id)
             if res:
-                columns = list(res[0].keys()) if isinstance(res, list) and len(res) > 0 else []
-                data = [tuple(item[col] for col in columns) for item in res] if columns else []
-            else:
-                columns = []
-                data = []
-            display_table('Фінансовий звіт групи', columns, data, query_name='Фінансовий звіт групи', raw_result=res)
+                # Отримуємо оригінальні назви колонок
+                original_columns = list(res[0].keys()) if isinstance(res, list) and len(res) > 0 else []
 
+                # Виключаємо поле 'id' з відображення
+                columns_to_display = [col for col in original_columns if col != 'id']
+
+                # Створюємо список зрозумілих назв колонок
+                display_columns = [FIELD_NAMES.get(col, col) for col in columns_to_display]
+
+                # Формуємо дані для відображення
+                data = [tuple(item[col] for col in columns_to_display) for item in res] if columns_to_display else []
+
+                print(f"Оригінальні колонки: {original_columns}")  # для дебагу
+                print(f"Колонки для відображення: {columns_to_display}")  # для дебагу
+                print(f"Відображувані колонки: {display_columns}")  # для дебагу
+
+            else:
+                display_columns = []
+                data = []
+                print("Немає даних для відображення")  # для дебагу
+
+            display_table('Фінансовий звіт групи', display_columns, data, query_name='Фінансовий звіт групи',
+                          raw_result=res)
 
         tk.Button(form, text='Показати', command=run).grid(row=1, column=0, columnspan=2)
 
