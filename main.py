@@ -76,65 +76,99 @@ def show_main_menu():
     main_win = tk.Tk()
     main_win.title('Головне меню')
     main_win.attributes('-fullscreen', True)
-    tk.Label(main_win, text=f"Вітаємо, {current_user['login']} ({current_user['role']})").pack()
-    
-    # Кнопки доступні тільки для адміністраторів
+
+    # Головний контейнер
+    main_container = tk.Frame(main_win)
+    main_container.pack(expand=True, fill='both')
+
+    canvas = tk.Canvas(main_container)
+    scrollbar = tk.Scrollbar(main_container, orient='vertical', command=canvas.yview)
+    scrollable_frame = tk.Frame(canvas)
+
+    scrollable_frame.bind(
+        "<Configure>",
+        lambda e: canvas.configure(
+            scrollregion=canvas.bbox("all")
+        )
+    )
+
+    # Створюємо вікно в canvas для scrollable_frame
+    canvas_window = canvas.create_window((0, 0), window=scrollable_frame, anchor='nw')
+    canvas.configure(yscrollcommand=scrollbar.set)
+
+    canvas.pack(side='left', fill='both', expand=True)
+    scrollbar.pack(side='right', fill='y')
+
+    # Функція для оновлення ширини scrollable_frame при зміні розміру canvas
+    def configure_scrollable_frame(event):
+        canvas.itemconfig(canvas_window, width=event.width)
+
+    canvas.bind('<Configure>', configure_scrollable_frame)
+
+    welcome_font = ('Arial', 18, 'bold')
+    btn_font = ('Arial', 14)
+
+    # Створюємо фрейм для центрування вмісту всередині scrollable_frame
+    center_frame = tk.Frame(scrollable_frame)
+    center_frame.pack(expand=True, fill='both')
+
+    tk.Label(center_frame, text=f"Вітаємо, {current_user['login']} ({current_user['role']})", font=welcome_font).pack(
+        pady=(0, 20))
+
+    def create_button(text, command):
+        return tk.Button(center_frame, text=text, font=btn_font, width=30, height=2, command=command)
+
     if current_user['role'] == 'Адміністратор':
-        tk.Button(main_win, text='Додати користувача', command=show_add_user_window).pack(fill='x')
-        tk.Button(main_win, text='Керування користувачами', command=show_users_window).pack(fill='x')
-    
-    # CRUD-операції доступні тільки для операторів/адміністраторів
+        create_button('Додати користувача', show_add_user_window).pack(pady=5)
+        create_button('Керування користувачами', show_users_window).pack(pady=5)
+
     if current_user['role'] in ['Оператор', 'Адміністратор']:
-        tk.Button(main_win, text='Туристи', command=show_tourist_window).pack(fill='x')
-        tk.Button(main_win, text='Готелі', command=show_hotel_window).pack(fill='x')
-        tk.Button(main_win, text='Екскурсії', command=show_excursion_window).pack(fill='x')
-        tk.Button(main_win, text='Агентства', command=show_agency_window).pack(fill='x')
-        tk.Button(main_win, text='Вантаж', command=show_cargo_window).pack(fill='x')
-        tk.Button(main_win, text='Візи', command=show_visa_window).pack(fill='x')
-        tk.Button(main_win, text='Групи туристів', command=show_group_window).pack(fill='x')
-        tk.Button(main_win, text='Туриста в групах', command=show_group_members_window).pack(fill='x')
-        tk.Button(main_win, text='Авіарейси', command=show_flight_window).pack(fill='x')
-        tk.Button(main_win, text='Фінансові звіти', command=show_financial_window).pack(fill='x')
-        tk.Button(main_win, text='Аеропортні операції', command=show_airport_operations_window).pack(fill='x')
-        tk.Button(main_win, text='Митничні процедури', command=show_customs_procedures_window).pack(fill='x')
-    
-    # Для авторизованих - тільки перегляд (без фінансових звітів)
+        create_button('Туристи', show_tourist_window).pack(pady=5)
+        create_button('Готелі', show_hotel_window).pack(pady=5)
+        create_button('Екскурсії', show_excursion_window).pack(pady=5)
+        create_button('Агентства', show_agency_window).pack(pady=5)
+        create_button('Вантаж', show_cargo_window).pack(pady=5)
+        create_button('Візи', show_visa_window).pack(pady=5)
+        create_button('Групи туристів', show_group_window).pack(pady=5)
+        create_button('Туриста в групах', show_group_members_window).pack(pady=5)
+        create_button('Авіарейси', show_flight_window).pack(pady=5)
+        create_button('Фінансові звіти', show_financial_window).pack(pady=5)
+        create_button('Аеропортні операції', show_airport_operations_window).pack(pady=5)
+        create_button('Митничні процедури', show_customs_procedures_window).pack(pady=5)
+
     elif current_user['role'] == 'Авторизований':
-        tk.Button(main_win, text='Переглянути туристів', command=show_tourist_view_window).pack(fill='x')
-        tk.Button(main_win, text='Переглянути готелі', command=show_hotel_view_window).pack(fill='x')
-        tk.Button(main_win, text='Переглянути екскурсії', command=show_excursion_view_window).pack(fill='x')
-        tk.Button(main_win, text='Переглянути агентства', command=show_agency_view_window).pack(fill='x')
-        tk.Button(main_win, text='Переглянути вантаж', command=show_cargo_view_window).pack(fill='x')
-        tk.Button(main_win, text='Переглянути візи', command=show_visa_view_window).pack(fill='x')
-        tk.Button(main_win, text='Переглянути групи', command=show_group_view_window).pack(fill='x')
-        tk.Button(main_win, text='Переглянути авіарейси', command=show_flight_view_window).pack(fill='x')
-    
-    # Для гостей - тільки публічна інформація
+        create_button('Переглянути туристів', show_tourist_view_window).pack(pady=5)
+        create_button('Переглянути готелі', show_hotel_view_window).pack(pady=5)
+        create_button('Переглянути екскурсії', show_excursion_view_window).pack(pady=5)
+        create_button('Переглянути агентства', show_agency_view_window).pack(pady=5)
+        create_button('Переглянути вантаж', show_cargo_view_window).pack(pady=5)
+        create_button('Переглянути візи', show_visa_view_window).pack(pady=5)
+        create_button('Переглянути групи', show_group_view_window).pack(pady=5)
+        create_button('Переглянути авіарейси', show_flight_view_window).pack(pady=5)
+
     elif current_user['role'] == 'Гість':
-        tk.Button(main_win, text='Переглянути готелі', command=show_hotel_public_window).pack(fill='x')
-        tk.Button(main_win, text='Переглянути екскурсії', command=show_excursion_public_window).pack(fill='x')
-        tk.Button(main_win, text='Переглянути агентства', command=show_agency_public_window).pack(fill='x')
-    
-    # Функціональні запити доступні всім (з обмеженнями)
-    tk.Button(main_win, text='Функціональні запити', command=show_queries_window).pack(fill='x')
-    tk.Button(main_win, text='Заявки', command=show_requests_window).pack(fill='x')
-    tk.Button(main_win, text='Вийти', command=logout).pack(fill='x')
-    
-    # Підтримка клавішних комбінацій
+        create_button('Переглянути готелі', show_hotel_public_window).pack(pady=5)
+        create_button('Переглянути екскурсії', show_excursion_public_window).pack(pady=5)
+        create_button('Переглянути агентства', show_agency_public_window).pack(pady=5)
+
+    create_button('Функціональні запити', show_queries_window).pack(pady=5)
+    create_button('Заявки', show_requests_window).pack(pady=5)
+    create_button('Вийти', logout).pack(pady=5)
+
     def on_key_press(event):
         if event.keysym == 'F1':
-            messagebox.showinfo('Довідка', 
-                'Клавішні комбінації:\n'
-                'F1 - Довідка\n'
-                'Escape - Закрити вікно\n'
-                'Enter - Підтвердити дію\n'
-                'Tab - Перехід до наступного поля\n'
-                'Shift+Tab - Перехід до попереднього поля')
+            messagebox.showinfo('Довідка',
+                                'Клавішні комбінації:\n'
+                                'F1 - Довідка\n'
+                                'Escape - Закрити вікно\n'
+                                'Enter - Підтвердити дію\n'
+                                'Tab - Перехід до наступного поля\n'
+                                'Shift+Tab - Перехід до попереднього поля')
         elif event.keysym == 'Escape':
             main_win.destroy()
-    
+
     main_win.bind('<KeyPress>', on_key_press)
-    main_win.focus_set()  # Дозволити вікну отримувати події клавіатури
+    main_win.focus_set()
     main_win.mainloop()
 
 def logout():
