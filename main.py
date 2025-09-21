@@ -1599,7 +1599,6 @@ def show_queries_window():
             else:
                 display_columns = []
                 data = []
-                print("Немає даних для відображення")  # для дебагу
 
             # Відображаємо таблицю з зрозумілими назвами колонок (без ID)
             display_table('Витрати/прибутки за період', display_columns, data,
@@ -1735,13 +1734,12 @@ def show_queries_window():
                 # Формуємо дані для відображення
                 data = [tuple(item[col] for col in original_columns) for item in res] if original_columns else []
 
-                print(f"Оригінальні колонки: {original_columns}")  # для дебагу
-                print(f"Відображувані колонки: {display_columns}")  # для дебагу
+
 
             else:
                 display_columns = []
                 data = []
-                print("Немає даних для відображення")  # для дебагу
+
 
             display_table('Вантажообіг', display_columns, data, query_name='Вантажообіг', raw_result=res)
 
@@ -1832,14 +1830,12 @@ def show_queries_window():
                 # Формуємо дані для відображення
                 data = [tuple(item[col] for col in columns_to_display) for item in res] if columns_to_display else []
 
-                print(f"Оригінальні колонки: {original_columns}")  # для дебагу
-                print(f"Колонки для відображення: {columns_to_display}")  # для дебагу
-                print(f"Відображувані колонки: {display_columns}")  # для дебагу
+
 
             else:
                 display_columns = []
                 data = []
-                print("Немає даних для відображення")  # для дебагу
+
 
             display_table('Фінансовий звіт групи', display_columns, data, query_name='Фінансовий звіт групи',
                           raw_result=res)
@@ -1859,15 +1855,35 @@ def show_queries_window():
         date_to.grid(row=1, column=1)
 
         def run():
+            # Словник для перетворення технічних назв полів в зрозумілі користувацькі
+            FIELD_NAMES = {
+                'name': 'Назва готелю',
+                'tourists_count': 'Кількість туристів',
+                'rooms_occupied': 'Зайнято кімнат',
+            }
+
             res = db.get_hotel_occupancy(date_from.get(), date_to.get())
             if res:
-                columns = list(res[0].keys()) if isinstance(res, list) and len(res) > 0 else []
-                data = [tuple(item[col] for col in columns) for item in res] if columns else []
-            else:
-                columns = []
-                data = []
-            display_table('Зайнятість готелів', columns, data, query_name='Зайнятість готелів', raw_result=res)
+                # Отримуємо оригінальні назви колонок
+                original_columns = list(res[0].keys()) if isinstance(res, list) and len(res) > 0 else []
 
+                # Виключаємо поле 'id' з відображення
+                columns_to_display = [col for col in original_columns if col != 'id']
+
+                # Створюємо список зрозумілих назв колонок
+                display_columns = [FIELD_NAMES.get(col, col) for col in columns_to_display]
+
+                # Формуємо дані для відображення
+                data = [tuple(item[col] for col in columns_to_display) for item in res] if columns_to_display else []
+
+
+
+            else:
+                display_columns = []
+                data = []
+
+
+            display_table('Зайнятість готелів', display_columns, data, query_name='Зайнятість готелів', raw_result=res)
 
         tk.Button(form, text='Показати', command=run).grid(row=2, column=0, columnspan=2)
 
@@ -1881,15 +1897,49 @@ def show_queries_window():
         combo.grid(row=0, column=1)
 
         def run():
+            # Словник для перетворення технічних назв полів в зрозумілі користувацькі
+            FIELD_NAMES = {
+                'id': 'ID',
+                'full_name': 'ПІБ',
+                'passport': 'Паспорт',
+                'gender': 'Стать',
+                'age': 'Вік',
+                'category': 'Категорія',
+                'children_info': 'Інформація про дітей',
+                'nationality': 'Національність',
+                'birth_date': 'Дата народження',
+                'visa_info': 'Візова інформація',
+                'flight_number': 'Номер рейсу',
+                'arrival_date': 'Дата прибуття',
+                'departure_date': 'Дата відбуття',
+                'cargo_weight': 'Вага вантажу',
+                'cargo_type': 'Тип вантажу'
+            }
+
             cat = combo.get() if combo.get() else None
             res = db.get_customs_tourists(cat)
             if res:
-                columns = list(res[0].keys()) if isinstance(res, list) and len(res) > 0 else []
-                data = [tuple(item[col] for col in columns) for item in res] if columns else []
+                # Отримуємо оригінальні назви колонок
+                original_columns = list(res[0].keys()) if isinstance(res, list) and len(res) > 0 else []
+
+                # Виключаємо поле 'id' з відображення
+                columns_to_display = [col for col in original_columns if col != 'id']
+
+                # Створюємо список зрозумілих назв колонок
+                display_columns = [FIELD_NAMES.get(col, col) for col in columns_to_display]
+
+                # Формуємо дані для відображення
+                data = [tuple(item[col] for col in columns_to_display) for item in res] if columns_to_display else []
+
+
+
             else:
-                columns = []
+                display_columns = []
                 data = []
-            display_table('Туристи для митниці', columns, data, query_name='Туристи для митниці', raw_result=res)
+
+
+            display_table('Туристи для митниці', display_columns, data, query_name='Туристи для митниці',
+                          raw_result=res)
 
         tk.Button(form, text='Показати', command=run).grid(row=1, column=0, columnspan=2)
 
@@ -1909,16 +1959,50 @@ def show_queries_window():
         combo.grid(row=2, column=1)
 
         def run():
+            # Словник для перетворення технічних назв полів в зрозумілі користувацькі
+            FIELD_NAMES = {
+                'id': 'ID',
+                'full_name': 'ПІБ',
+                'passport': 'Паспорт',
+                'gender': 'Стать',
+                'age': 'Вік',
+                'category': 'Категорія',
+                'children_info': 'Інформація про дітей',
+                'nationality': 'Національність',
+                'birth_date': 'Дата народження',
+                'arrival_date': 'Дата прибуття',
+                'departure_date': 'Дата відбуття',
+                'flight_number': 'Номер рейсу',
+                'hotel_name': 'Назва готелю',
+                'group_identifier': 'Ідентифікатор групи',
+                'trips_count': 'Кількість поїздок',
+                'cargo_weight': 'Вага вантажу',
+                'cargo_type': 'Тип вантажу'
+            }
+
             cat = combo.get() if combo.get() else None
             res = db.get_tourists_by_period(date_from.get(), date_to.get(), cat)
             if res:
-                columns = list(res[0].keys()) if isinstance(res, list) and len(res) > 0 else []
-                data = [tuple(item[col] for col in columns) for item in res] if columns else []
-            else:
-                columns = []
-                data = []
-            display_table('Туристи за період', columns, data, query_name='Туристи за період', raw_result=res)
+                # Отримуємо оригінальні назви колонок
+                original_columns = list(res[0].keys()) if isinstance(res, list) and len(res) > 0 else []
 
+                # Виключаємо поле 'id' з відображення
+                columns_to_display = [col for col in original_columns if col != 'id']
+
+                # Створюємо список зрозумілих назв колонок
+                display_columns = [FIELD_NAMES.get(col, col) for col in columns_to_display]
+
+                # Формуємо дані для відображення
+                data = [tuple(item[col] for col in columns_to_display) for item in res] if columns_to_display else []
+
+
+
+            else:
+                display_columns = []
+                data = []
+
+
+            display_table('Туристи за період', display_columns, data, query_name='Туристи за період', raw_result=res)
 
         tk.Button(form, text='Показати', command=run).grid(row=3, column=0, columnspan=2)
 
