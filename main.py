@@ -1663,15 +1663,36 @@ def show_queries_window():
         date_to.grid(row=1, column=1)
 
         def run():
+            # Словник для перетворення технічних назв полів в зрозумілі користувацькі
+            FIELD_NAMES = {
+                'tourists_count': 'Кількість туристів',
+                'excursion_name': 'Назва екскурсії',
+                'agency_name': 'Назва агенції',
+                'excursion_orders': 'Кількість замовлень',
+                'id': 'ID',
+                'date': 'Дата',
+                'price': 'Ціна',
+                'duration': 'Тривалість',
+                'guide_name': 'Ім\'я гіда',
+                'location': 'Місце проведення'
+            }
+
             res = db.get_excursion_stats(date_from.get(), date_to.get())
             if res:
-                columns = list(res[0].keys()) if isinstance(res, list) and len(res) > 0 else []
-                data = [tuple(item[col] for col in columns) for item in res] if columns else []
-            else:
-                columns = []
-                data = []
-            display_table('Статистика екскурсій', columns, data)
+                # Отримуємо оригінальні назви колонок
+                original_columns = list(res[0].keys()) if isinstance(res, list) and len(res) > 0 else []
 
+                # Створюємо список зрозумілих назв колонок
+                display_columns = [FIELD_NAMES.get(col, col) for col in original_columns]
+
+                # Формуємо дані для відображення
+                data = [tuple(item[col] for col in original_columns) for item in res] if original_columns else []
+
+            else:
+                display_columns = []
+                data = []
+
+            display_table('Статистика екскурсій', display_columns, data)
 
         tk.Button(form, text='Показати', command=run).grid(row=2, column=0, columnspan=2)
 
