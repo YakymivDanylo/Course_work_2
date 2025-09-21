@@ -1617,15 +1617,36 @@ def show_queries_window():
         date.grid(row=0, column=1)
 
         def run():
+            # Словник для перетворення технічних назв полів в зрозумілі користувацькі
+            FIELD_NAMES = {
+                'id': 'ID',
+                'flight_number': 'Номер рейсу',
+                'date': 'Дата',
+                'seats_count': 'Загальна кількість місць',
+                'free_seats': 'Вільні місця',
+                'cargo_weight': 'Вага вантажу (кг)',
+                'plane_class': 'Клас літака',
+                'occupied_seats': 'Зайняті місця',
+                'load_percentage': 'Завантаження (%)'
+            }
+
             res = db.get_flight_load_by_date(date.get())
             if res:
-                columns = list(res[0].keys()) if isinstance(res, list) and len(res) > 0 else []
-                data = [tuple(item[col] for col in columns) for item in res] if columns else []
-            else:
-                columns = []
-                data = []
-            display_table('Завантаження рейсу', columns, data, query_name='Завантаження_рейсу', raw_result=res)
+                # Отримуємо оригінальні назви колонок
+                original_columns = list(res[0].keys()) if isinstance(res, list) and len(res) > 0 else []
 
+                # Створюємо список зрозумілих назв колонок
+                display_columns = [FIELD_NAMES.get(col, col) for col in original_columns]
+
+                # Формуємо дані для відображення
+                data = [tuple(item[col] for col in original_columns) for item in res] if original_columns else []
+
+            else:
+                display_columns = []
+                data = []
+
+
+            display_table('Завантаження рейсу', display_columns, data, query_name='Завантаження_рейсу', raw_result=res)
 
         tk.Button(form, text='Показати', command=run).grid(row=1, column=0, columnspan=2)
 
