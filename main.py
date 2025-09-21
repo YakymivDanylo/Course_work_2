@@ -1568,32 +1568,42 @@ def show_queries_window():
         date_to.grid(row=1, column=1)
 
         def run():
+            # Словник для перетворення технічних назв полів в зрозумілі користувацькі
             FIELD_NAMES = {
                 'id': 'ID',
-                'full_name': 'ПІБ',
-                'passport': 'Паспорт',
-                'gender': 'Стать',
-                'age': 'Вік',
-                'category': 'Категорія',
-                'children_info': 'Діти',
-                'trips_count': 'Кількість поїздок',
-                'arrivals': 'Дати прибуття',
-                'departures': 'Дати відбуття',
-                'hotels': 'Готелі',
-                'excursions': 'Екскурсії',
-                'cargos': 'Вантаж',
-                # додайте інші поля по потребі
+                'group_id': 'ID групи',
+                'income': 'Дохід(грн.)',
+                'profit': 'Прибуток(грн.)',
+                'expense_hotel': 'Витрати на готель(грн.)',
+                'expense_transport': 'Витрати на транспорт(грн.)',
+                'expense_excursion': 'Витрати на екскурсії(грн.)',
+                'expense_equipment': 'Витрати на спорядження(грн.)',
+                'expense_cargo': 'Витрати на вантаж(грн.)',
+                'expense_airport': 'Витрати на аеропорт(грн.)'
             }
 
             res = db.get_financial_by_period(date_from.get(), date_to.get())
             if res:
-                columns = [FIELD_NAMES.get(k, k) for k in res[0].keys()]  # красиві назви
-                data = [tuple(item[k] for k in res[0].keys()) for item in res]
-            else:
-                columns = []
-                data = []
-            display_table('Витрати/прибутки за період', columns, data, query_name='Витрати/прибутки за період', raw_result=res)
+                # Отримуємо оригінальні назви колонок з першого запису
+                original_columns = list(res[0].keys())
 
+                # Виключаємо поле 'id' з відображення
+                columns_to_display = [col for col in original_columns if col != 'id']
+
+                # Створюємо список зрозумілих назв колонок (без ID)
+                display_columns = [FIELD_NAMES.get(col, col) for col in columns_to_display]
+
+                # Формуємо дані для відображення (без поля ID)
+                data = [tuple(item[col] for col in columns_to_display) for item in res]
+
+            else:
+                display_columns = []
+                data = []
+                print("Немає даних для відображення")  # для дебагу
+
+            # Відображаємо таблицю з зрозумілими назвами колонок (без ID)
+            display_table('Витрати/прибутки за період', display_columns, data,
+                          query_name='Витрати/прибутки за період', raw_result=res)
 
         tk.Button(form, text='Показати', command=run).grid(row=2, column=0, columnspan=2)
 
