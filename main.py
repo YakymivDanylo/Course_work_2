@@ -31,14 +31,25 @@ def show_login_window():
 
     login_win = tk.Tk()
     login_win.title('Авторизація')
-    tk.Label(login_win, text='Логін').grid(row=0, column=0)
-    tk.Label(login_win, text='Пароль').grid(row=1, column=0)
-    entry_login = tk.Entry(login_win)
-    entry_password = tk.Entry(login_win, show='*')
-    entry_login.grid(row=0, column=1)
-    entry_password.grid(row=1, column=1)
-    tk.Button(login_win, text='Увійти', command=login).grid(row=2, column=0, columnspan=2)
-    tk.Button(login_win, text='Forgot Password', command=forgot_password).grid(row=3, column=0, columnspan=2)
+
+    login_win.attributes('-fullscreen', True)
+    frame = tk.Frame(login_win, padx=50, pady=50)
+    frame.place(relx=0.5, rely=0.5, anchor='center')
+
+    label_font = ('Arial', 16)
+    entry_font = ('Arial', 14)
+    btn_font= ('Arial', 14)
+
+    tk.Label(frame, text='Логін', font=label_font).grid(row=0, column=0, sticky='e', pady=10)
+    tk.Label(frame, text='Пароль', font=label_font).grid(row=1, column=0, sticky='e', pady=10)
+
+    entry_login = tk.Entry(frame, font=entry_font, width=30)
+    entry_password = tk.Entry(frame, show='*', font=entry_font, width=30)
+    entry_login.grid(row=0, column=1, pady=10)
+    entry_password.grid(row=1, column=1, pady=10)
+
+    tk.Button(frame, text='Увійти', command=login,font=btn_font ,width=20).grid(row=2, column=0, columnspan=2, pady=15)
+    tk.Button(frame, text='Forgot Password', command=forgot_password,font=btn_font, width=20).grid(row=3, column=0, columnspan=2)
     
     # Підтримка клавішних комбінацій
     def on_key_press(event):
@@ -64,6 +75,7 @@ def show_login_window():
 def show_main_menu():
     main_win = tk.Tk()
     main_win.title('Головне меню')
+    main_win.attributes('-fullscreen', True)
     tk.Label(main_win, text=f"Вітаємо, {current_user['login']} ({current_user['role']})").pack()
     
     # Кнопки доступні тільки для адміністраторів
