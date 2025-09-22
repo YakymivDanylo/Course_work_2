@@ -4,6 +4,7 @@ from tkcalendar import DateEntry
 import queries as db
 from datetime import datetime
 import re
+import hashlib
 
 current_user = None
 
@@ -13,8 +14,22 @@ def show_login_window():
         global current_user
         login_val = entry_login.get()
         password_val = entry_password.get()
+
+        # Додати перевірку на порожні поля
+        if not login_val or not password_val:
+            messagebox.showerror('Помилка', 'Будь ласка, заповніть всі поля')
+            return
+
         user = db.get_user_by_login(login_val)
-        if user and user['password'] == password_val:
+        hashed_entered_password = hashlib.sha256(password_val.encode('utf-8')).hexdigest()
+
+        # Додатковий вивід для дебагінга
+        print(f"Login attempt: {login_val}")
+        print(f"Entered password hash: {hashed_entered_password}")
+        if user:
+            print(f"Stored password hash: {user['password']}")
+
+        if user and user['password'] == hashed_entered_password:
             current_user = user
             login_win.destroy()
             show_main_menu()
@@ -31,14 +46,14 @@ def show_login_window():
 
     login_win = tk.Tk()
     login_win.title('Авторизація')
-
     login_win.attributes('-fullscreen', True)
+
     frame = tk.Frame(login_win, padx=50, pady=50)
     frame.place(relx=0.5, rely=0.5, anchor='center')
 
     label_font = ('Arial', 16)
     entry_font = ('Arial', 14)
-    btn_font= ('Arial', 14)
+    btn_font = ('Arial', 14)
 
     tk.Label(frame, text='Логін', font=label_font).grid(row=0, column=0, sticky='e', pady=10)
     tk.Label(frame, text='Пароль', font=label_font).grid(row=1, column=0, sticky='e', pady=10)
@@ -48,27 +63,25 @@ def show_login_window():
     entry_login.grid(row=0, column=1, pady=10)
     entry_password.grid(row=1, column=1, pady=10)
 
-    tk.Button(frame, text='Увійти', command=login,font=btn_font ,width=20).grid(row=2, column=0, columnspan=2, pady=15)
-    tk.Button(frame, text='Forgot Password', command=forgot_password,font=btn_font, width=20).grid(row=3, column=0, columnspan=2)
-    
-    # Підтримка клавішних комбінацій
+    tk.Button(frame, text='Увійти', command=login, font=btn_font, width=20).grid(row=2, column=0, columnspan=2, pady=15)
+    tk.Button(frame, text='Forgot Password', command=forgot_password, font=btn_font, width=20).grid(row=3, column=0,
+                                                                                                    columnspan=2)
+
     def on_key_press(event):
         if event.keysym == 'Return':
             login()
         elif event.keysym == 'Escape':
             login_win.destroy()
         elif event.keysym == 'F1':
-            messagebox.showinfo('Довідка', 
-                'Клавішні комбінації:\n'
-                'Enter - Увійти\n'
-                'Escape - Вийти\n'
-                'F1 - Довідка\n'
-                'Tab - Перехід між полями')
-    
+            messagebox.showinfo('Довідка',
+                                'Клавішні комбінації:\n'
+                                'Enter - Увійти\n'
+                                'Escape - Вийти\n'
+                                'F1 - Довідка\n'
+                                'Tab - Перехід між поля')
+
     login_win.bind('<KeyPress>', on_key_press)
-    entry_login.bind('<Return>', lambda e: login())
-    entry_password.bind('<Return>', lambda e: login())
-    login_win.focus_set()
+    entry_login.focus_set()
     login_win.mainloop()
 
 # --- Головне меню ---
@@ -191,31 +204,42 @@ def logout():
 def show_add_user_window():
     win = tk.Toplevel()
     win.title('Додати користувача')
-    tk.Label(win, text='Логін').grid(row=0, column=0)
-    tk.Label(win, text='Пароль').grid(row=1, column=0)
-    tk.Label(win, text='Права').grid(row=2, column=0)
 
-    width = 25  # спільна ширина полів
+    tk.Label(win, text='Логін').grid(row=0, column=0, padx=5, pady=5)
+    tk.Label(win, text='Пароль').grid(row=1, column=0, padx=5, pady=5)
+    tk.Label(win, text='Права').grid(row=2, column=0, padx=5, pady=5)
 
+    width = 25
     entry_login = tk.Entry(win, width=width)
     entry_password = tk.Entry(win, width=width, show='*')
-    combo_role = ttk.Combobox(win, values=['Адміністратор', 'Оператор', 'Авторизований', 'Гість'], width=width-2)
+    combo_role = ttk.Combobox(win, values=['Адміністратор', 'Оператор', 'Авторизований', 'Гість'], width=width - 2)
+    combo_role.set('Гість')  # Значення за замовчуванням
 
-    entry_login.grid(row=0, column=1)
-    entry_password.grid(row=1, column=1)
-    combo_role.grid(row=2, column=1)
+    entry_login.grid(row=0, column=1, padx=5, pady=5)
+    entry_password.grid(row=1, column=1, padx=5, pady=5)
+    combo_role.grid(row=2, column=1, padx=5, pady=5)
 
     def add():
-        if db.add_user(entry_login.get(), entry_password.get(), combo_role.get()):
+        login_val = entry_login.get()
+        password_val = entry_password.get()
+        role_val = combo_role.get()
+
+        # Перевірка заповненості полів
+        if not login_val or not password_val or not role_val:
+            messagebox.showerror('Помилка', 'Будь ласка, заповніть всі поля')
+            return
+
+        # Хешування пароля
+        hashed_password = hashlib.sha256(password_val.encode('utf-8')).hexdigest()
+
+        if db.add_user(login_val, hashed_password, role_val):
             messagebox.showinfo('Успіх', 'Користувача додано')
             win.destroy()
         else:
             messagebox.showerror('Помилка', 'Не вдалося додати користувача')
 
-    tk.Button(win, text='Додати', command=add).grid(row=3, column=0, columnspan=2)
+    tk.Button(win, text='Додати', command=add).grid(row=3, column=0, columnspan=2, pady=10)
 
-
-# --- Користувачі (тільки для адміністраторів/операторів) ---
 # --- Користувачі (тільки для адміністраторів/операторів) ---
 def show_users_window():
     win = tk.Toplevel()
