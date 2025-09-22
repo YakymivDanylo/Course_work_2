@@ -298,7 +298,9 @@ def show_users_window():
 
             # If password is empty, do not update it
             if password_val:
-                success = db.update_user(user_id, login_val, password_val, role_val)
+                # Хешування пароля перед збереженням
+                hashed_password = hashlib.sha256(password_val.encode('utf-8')).hexdigest()
+                success = db.update_user(user_id, login_val, hashed_password, role_val)
             else:
                 success = db.update_user_without_password(user_id, login_val, role_val)
 
