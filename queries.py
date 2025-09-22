@@ -83,6 +83,25 @@ def delete_tourist(tourist_id):
     finally:
         conn.close()
 
+# Update user without changing password
+
+def update_user_without_password(user_id, login, role):
+    conn = get_connection()
+    if not conn:
+        return False
+    try:
+        with conn.cursor() as cur:
+            cur.execute('''
+                UPDATE keys SET login=%s, role=%s WHERE id=%s
+            ''', (login, role, user_id))
+            conn.commit()
+        return True
+    except Exception as e:
+        print('Помилка оновлення користувача без пароля:', e)
+        return False
+    finally:
+        conn.close()
+
 # --- CRUD-функції для Готелів ---
 def add_hotel(name, address, rooms_count, room_types):
     conn = get_connection()

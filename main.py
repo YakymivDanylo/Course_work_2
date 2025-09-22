@@ -216,6 +216,7 @@ def show_add_user_window():
 
 
 # --- Користувачі (тільки для адміністраторів/операторів) ---
+# --- Користувачі (тільки для адміністраторів/операторів) ---
 def show_users_window():
     win = tk.Toplevel()
     win.title('Користувачі')
@@ -223,9 +224,93 @@ def show_users_window():
     for col in ('ID', 'Логін', 'Права'):
         tree.heading(col, text=col)
     tree.pack(fill='both', expand=True)
-    for u in db.get_all_users():
-        tree.insert('', 'end', values=(u['id'], u['login'], u['role']))
-    # Додати редагування/видалення за потреби
+
+    def refresh():
+        for i in tree.get_children():
+            tree.delete(i)
+        for u in db.get_all_users():
+            tree.insert('', 'end', values=(u['id'], u['login'], u['role']))
+
+    refresh()
+
+    def edit_user():
+        sel = tree.selection()
+        if not sel:
+            messagebox.showwarning('Попередження', 'Оберіть користувача для редагування')
+            return
+        item = tree.item(sel[0])
+        user_id = item['values'][0]
+        current_login = item['values'][1]
+        current_role = item['values'][2]
+
+        form = tk.Toplevel()
+        form.title('Редагувати користувача')
+
+        tk.Label(form, text='Логін').grid(row=0, column=0)
+        entry_login = tk.Entry(form, width=30)
+        entry_login.insert(0, current_login)
+        entry_login.grid(row=0, column=1)
+
+        tk.Label(form, text='Пароль').grid(row=1, column=0)
+        entry_password = tk.Entry(form, width=30, show='*')
+        entry_password.grid(row=1, column=1)
+
+        tk.Label(form, text='Права').grid(row=2, column=0)
+        combo_role = ttk.Combobox(form, values=['Адміністратор', 'Оператор', 'Авторизований', 'Гість'], state='readonly', width=28)
+        combo_role.set(current_role)
+        combo_role.grid(row=2, column=1)
+
+        def save():
+            login_val = entry_login.get().strip()
+            password_val = entry_password.get().strip()
+            role_val = combo_role.get()
+
+            if not login_val:
+                messagebox.showerror('Помилка', 'Логін є обов\'язковим')
+                return
+            if not role_val:
+                messagebox.showerror('Помилка', 'Оберіть роль')
+                return
+
+            # If password is empty, do not update it
+            if password_val:
+                success = db.update_user(user_id, login_val, password_val, role_val)
+            else:
+                success = db.update_user_without_password(user_id, login_val, role_val)
+
+            if success:
+                messagebox.showinfo('Успіх', 'Користувача оновлено')
+                form.destroy()
+                refresh()
+            else:
+                messagebox.showerror('Помилка', 'Не вдалося оновити користувача')
+
+        tk.Button(form, text='Зберегти', command=save).grid(row=3, column=0, columnspan=2)
+        form.bind('<Return>', lambda e: save())
+        form.bind('<Escape>', lambda e: form.destroy())
+
+    def delete_user():
+        sel = tree.selection()
+        if not sel:
+            messagebox.showwarning('Попередження', 'Оберіть користувача для видалення')
+            return
+        item = tree.item(sel[0])
+        user_id = item['values'][0]
+        login_val = item['values'][1]
+
+        result = messagebox.askyesno('Підтвердження', f'Видалити користувача "{login_val}"?')
+        if result:
+            if db.delete_user(user_id):
+                messagebox.showinfo('Успіх', 'Користувача видалено')
+                refresh()
+            else:
+                messagebox.showerror('Помилка', 'Не вдалося видалити користувача')
+
+    button_frame = tk.Frame(win)
+    button_frame.pack(pady=5)
+
+    tk.Button(button_frame, text='Редагувати', command=edit_user).pack(side='left', padx=5)
+    tk.Button(button_frame, text='Видалити', command=delete_user).pack(side='left', padx=5)
 
 # --- CRUD-екрани для всіх сутностей ---    
 # Приклад для Туристів (аналогічно для інших)
