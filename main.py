@@ -1457,7 +1457,7 @@ def show_visa_window():
 
             today = datetime.today().date()
 
-            # Перевірки
+            # Перевірки обов'язкових полів
             if tourist_id is None:
                 messagebox.showwarning('Помилка', 'Оберіть туриста')
                 return
@@ -1484,6 +1484,21 @@ def show_visa_window():
             if expiry_dt < issue_dt:
                 messagebox.showerror('Помилка', 'Термін дії не може бути раніше дати видачі')
                 return
+
+            # --- НОВІ ПЕРЕВІРКИ ---
+            visas = db.get_visas()
+
+            # Перевірка: один турист не може мати декілька віз
+            for v in visas:
+                if v['tourist_id'] == tourist_id:
+                    messagebox.showerror('Помилка', 'Цей турист вже має візу')
+                    return
+
+            # Перевірка: номер візи унікальний
+            for v in visas:
+                if v['visa_number'].lower() == visa_number.lower():
+                    messagebox.showerror('Помилка', 'Цей номер візи вже існує')
+                    return
 
             # Додавання візи
             if db.add_visa(tourist_id, visa_number, issue_date, country, expiry_date):
