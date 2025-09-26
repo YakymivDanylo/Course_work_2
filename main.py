@@ -37,12 +37,22 @@ def show_login_window():
             messagebox.showerror('Помилка', 'Невірний логін або пароль')
 
     def forgot_password():
-        login_val = entry_login.get()
+        login_val = entry_login.get().strip()
+
+        if not login_val:
+            messagebox.showerror('Помилка', 'Введіть логін для відновлення паролю')
+            return
+
         user = db.get_user_by_login(login_val)
-        if user and current_user and current_user['role'] == 'Адміністратор':
-            messagebox.showinfo('Пароль', f"Пароль: {user['password']}")
-        else:
-            messagebox.showerror('Доступ заборонено', 'Тільки адміністратор може переглядати паролі')
+
+        if not user:
+            messagebox.showerror('Помилка', 'Користувача з таким логіном не знайдено')
+            return
+
+        messagebox.showinfo('Відновлення паролю',
+                            'Для відновлення паролю зверніться до адміністратора.\n\n'
+                            f'Логін: {login_val}\n'
+                            'Адміністратор зможе змінити ваш пароль без знання поточного.')
 
     login_win = tk.Tk()
     login_win.title('Авторизація')
