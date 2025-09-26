@@ -18,7 +18,7 @@ CREATE TABLE requests (
 CREATE TABLE tourist (
     id SERIAL PRIMARY KEY,
     full_name VARCHAR(100) NOT NULL,
-    passport VARCHAR(50) NOT NULL,
+    passport VARCHAR(50) NOT NULL UNIQUE,
     gender VARCHAR(10),
     age INTEGER,
     category VARCHAR(20) CHECK (category IN ('відпочинок', 'вантаж')),
@@ -187,3 +187,6 @@ ALTER TABLE tourist ADD CONSTRAINT check_child_visa
 
 ALTER TABLE tourist ADD CONSTRAINT check_child_checkin 
     CHECK (NOT (is_child = TRUE AND can_checkin_alone = TRUE));
+
+ALTER TABLE tourist
+ADD CONSTRAINT unique_passport UNIQUE (passport);
