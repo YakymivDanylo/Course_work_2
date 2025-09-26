@@ -995,7 +995,6 @@ def show_excursion_window():
     tk.Button(button_frame, text='Видалити', command=delete_excursion).pack(side='left')
 
 # --- Агентства ---
-
 def show_agency_window():
     win = tk.Toplevel()
     win.title('Агентства')
@@ -1104,13 +1103,37 @@ def show_agency_window():
         form.title('Додати агентство')
         labels = ['Назва', 'Контакти']
         entries = [tk.Entry(form) for _ in labels]
+
         for i, l in enumerate(labels):
             tk.Label(form, text=l).grid(row=i, column=0)
             entries[i].grid(row=i, column=1)
 
+        # --- Додаємо placeholder для контактів ---
+        placeholder = "Телефон: ..., Email: ..."
+        contacts_entry = entries[1]
+        contacts_entry.insert(0, placeholder)
+        contacts_entry.config(fg='grey')
+
+        def on_focus_in(event):
+            if contacts_entry.get() == placeholder:
+                contacts_entry.delete(0, 'end')
+                contacts_entry.config(fg='black')
+
+        def on_focus_out(event):
+            if not contacts_entry.get():
+                contacts_entry.insert(0, placeholder)
+                contacts_entry.config(fg='grey')
+
+        contacts_entry.bind("<FocusIn>", on_focus_in)
+        contacts_entry.bind("<FocusOut>", on_focus_out)
+
+        # ------------------------------------------
+
         def save():
             name = entries[0].get().strip()
             contacts = entries[1].get().strip()
+            if contacts == placeholder:
+                contacts = ""  # Якщо користувач нічого не ввів
 
             if not name:
                 messagebox.showerror('Помилка', 'Заповніть назву агентства')
@@ -1119,12 +1142,10 @@ def show_agency_window():
                 messagebox.showerror('Помилка', 'Вкажіть хоча б телефон або email')
                 return
 
-            # Перевірка унікальності назви
             if not is_name_unique(name):
                 messagebox.showerror('Помилка', 'Агентство з такою назвою вже існує')
                 return
 
-            # Перевірка унікальності контактів
             contacts_unique, error_msg = are_contacts_unique(contacts)
             if not contacts_unique:
                 messagebox.showerror('Помилка', error_msg)
@@ -1642,7 +1663,6 @@ def show_group_members_window():
 
     tk.Button(button_frame, text='Додати', command=add_member).pack(side='left', padx=5)
     tk.Button(button_frame, text='Видалити', command=remove_member).pack(side='left', padx=5)
-
 
 # --- Авіарейси ---
 def show_flight_window():
@@ -2444,119 +2464,6 @@ def show_financial_view_window():
         tree.insert('', 'end', values=(f['id'], group, f['income'], f['expense_hotel'], f['expense_transport'], f['expense_excursion'], f['expense_airport'], f['expense_cargo']))
     tk.Label(win, text='Режим перегляду - редагування недоступне').pack()
 
-# # --- Вагові відомості ---
-# def show_weight_list_window():
-#     win = tk.Toplevel()
-#     win.title('Вагові відомості')
-#     tree = ttk.Treeview(win, columns=('ID', 'Вантаж', 'Опис', 'Вага', 'Маркування', 'Тип упаковки', 'Дата'), show='headings')
-#     for col in ('ID', 'Вантаж', 'Опис', 'Вага', 'Маркування', 'Тип упаковки', 'Дата'):
-#         tree.heading(col, text=col)
-#     tree.pack(fill='both', expand=True)
-#     def refresh():
-#         for i in tree.get_children(): tree.delete(i)
-#         cargos = {c['id']: f"Вантаж #{c['id']}" for c in db.get_cargos()}
-#         for w in db.get_weight_lists():
-#             cargo = cargos.get(w['cargo_id'], '')
-#             tree.insert('', 'end', values=(w['id'], cargo, w['item_description'], w['weight'], w['marking'], w['packaging_type'], w['created_date']))
-#     refresh()
-#     def add_weight_list():
-#         form = tk.Toplevel()
-#         form.title('Додати вагову відомість')
-#         cargos = db.get_cargos()
-#         combo_cargo = ttk.Combobox(form, values=[f"Вантаж #{c['id']}" for c in cargos])
-#         entry_description = tk.Entry(form)
-#         entry_weight = tk.Entry(form)
-#         entry_marking = tk.Entry(form)
-#         entry_packaging = tk.Entry(form)
-#
-#         labels = ['Вантаж', 'Опис', 'Вага', 'Маркування', 'Тип упаковки']
-#         widgets = [combo_cargo, entry_description, entry_weight, entry_marking, entry_packaging]
-#
-#         for i, l in enumerate(labels):
-#             tk.Label(form, text=l).grid(row=i, column=0)
-#             widgets[i].grid(row=i, column=1)
-#
-#         def save():
-#             cargo_id = cargos[combo_cargo.current()]['id'] if combo_cargo.current() >= 0 else None
-#             if validate_number(entry_weight.get()) and cargo_id:
-#                 if db.add_weight_list(cargo_id, entry_description.get(), entry_weight.get(), entry_marking.get(), entry_packaging.get()):
-#                     messagebox.showinfo('Успіх', 'Вагову відомість додано')
-#                     form.destroy(); refresh()
-#                 else:
-#                     messagebox.showerror('Помилка', 'Не вдалося додати вагову відомість')
-#             else:
-#                 messagebox.showerror('Помилка', 'Перевірте правильність введених даних')
-#
-#         tk.Button(form, text='Зберегти', command=save).grid(row=len(labels), column=0, columnspan=2)
-#         form.bind('<Return>', lambda e: save())
-#         form.bind('<Escape>', lambda e: form.destroy())
-#
-#     def edit_weight_list():
-#         sel = tree.selection()
-#         if not sel:
-#             messagebox.showwarning('Попередження', 'Оберіть запис для редагування')
-#             return
-#         item = tree.item(sel[0])
-#         weight_id = item['values'][0]
-#
-#         form = tk.Toplevel()
-#         form.title('Редагувати вагову відомість')
-#         cargos = db.get_cargos()
-#         combo_cargo = ttk.Combobox(form, values=[f"Вантаж #{c['id']}" for c in cargos])
-#         entry_description = tk.Entry(form)
-#         entry_weight = tk.Entry(form)
-#         entry_marking = tk.Entry(form)
-#         entry_packaging = tk.Entry(form)
-#
-#         # Заповнити поточними значеннями
-#         entry_description.insert(0, item['values'][2])
-#         entry_weight.insert(0, item['values'][3])
-#         entry_marking.insert(0, item['values'][4])
-#         entry_packaging.insert(0, item['values'][5])
-#
-#         labels = ['Вантаж', 'Опис', 'Вага', 'Маркування', 'Тип упаковки']
-#         widgets = [combo_cargo, entry_description, entry_weight, entry_marking, entry_packaging]
-#
-#         for i, l in enumerate(labels):
-#             tk.Label(form, text=l).grid(row=i, column=0)
-#             widgets[i].grid(row=i, column=1)
-#
-#         def save():
-#             cargo_id = cargos[combo_cargo.current()]['id'] if combo_cargo.current() >= 0 else None
-#             if validate_number(entry_weight.get()) and cargo_id:
-#                 if db.update_weight_list(weight_id, cargo_id, entry_description.get(), entry_weight.get(), entry_marking.get(), entry_packaging.get()):
-#                     messagebox.showinfo('Успіх', 'Вагову відомість оновлено')
-#                     form.destroy(); refresh()
-#                 else:
-#                     messagebox.showerror('Помилка', 'Не вдалося оновити вагову відомість')
-#             else:
-#                 messagebox.showerror('Помилка', 'Перевірте правильність введених даних')
-#
-#         tk.Button(form, text='Зберегти', command=save).grid(row=len(labels), column=0, columnspan=2)
-#         form.bind('<Return>', lambda e: save())
-#         form.bind('<Escape>', lambda e: form.destroy())
-#
-#     def delete_weight_list():
-#         sel = tree.selection()
-#         if not sel:
-#             messagebox.showwarning('Попередження', 'Оберіть запис для видалення')
-#             return
-#         if messagebox.askyesno('Підтвердження', 'Ви впевнені, що хочете видалити цю вагову відомість?'):
-#             weight_id = tree.item(sel[0])['values'][0]
-#             if db.delete_weight_list(weight_id):
-#                 messagebox.showinfo('Успіх', 'Вагову відомість видалено')
-#                 refresh()
-#             else:
-#                 messagebox.showerror('Помилка', 'Не вдалося видалити вагову відомість')
-#
-#     button_frame = tk.Frame(win)
-#     button_frame.pack(fill='x')
-#     tk.Button(button_frame, text='Додати', command=add_weight_list).pack(side='left')
-#     tk.Button(button_frame, text='Редагувати', command=edit_weight_list).pack(side='left')
-#     tk.Button(button_frame, text='Видалити', command=delete_weight_list).pack(side='left')
-
-# --- Аеропортні операції ---
-
 def show_airport_operations_window():
     win = tk.Toplevel()
     win.title('Аеропортні операції')
@@ -2905,8 +2812,5 @@ def validate_required(value):
     """Перевіряє, чи заповнене обов'язкове поле"""
     return value and value.strip()
 
-
-
-# --- Запуск ---
 if __name__ == '__main__':
     show_login_window()
