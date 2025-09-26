@@ -645,15 +645,40 @@ def get_user_by_login(login):
     finally:
         conn.close()
 
+
+def user_exists(login):
+    """Перевіряє, чи існує користувач з вказаним логіном"""
+    conn = get_connection()
+    if not conn:
+        return False
+    try:
+        with conn.cursor() as cur:
+            cur.execute('SELECT login FROM keys WHERE login = %s', (login,))
+            result = cur.fetchone()
+            return result is not None
+    except Exception as e:
+        print('Помилка перевірки користувача:', e)
+        return True  # У разі помилки краще не дозволити додавання
+    finally:
+        conn.close()
+
+
+# Оновлена функція add_user для більш безпечної роботи
 def add_user(login, password, role):
     conn = get_connection()
     if not conn:
         return False
     try:
         with conn.cursor() as cur:
+            # Додаємо перевірку на унікальність (забійний захід)
+            cur.execute('SELECT login FROM keys WHERE login = %s', (login,))
+            if cur.fetchone():
+                return False  # Користувач вже існує
+
             cur.execute('''
-                INSERT INTO keys (login, password, role) VALUES (%s, %s, %s)
-            ''', (login, password, role))
+                        INSERT INTO keys (login, password, role)
+                        VALUES (%s, %s, %s)
+                        ''', (login, password, role))
             conn.commit()
         return True
     except Exception as e:

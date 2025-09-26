@@ -229,6 +229,11 @@ def show_add_user_window():
             messagebox.showerror('Помилка', 'Будь ласка, заповніть всі поля')
             return
 
+        # Перевірка чи логін вже існує в БД
+        if db.user_exists(login_val):
+            messagebox.showerror('Помилка', 'Користувач з таким логіном вже існує')
+            return
+
         # Хешування пароля
         hashed_password = hashlib.sha256(password_val.encode('utf-8')).hexdigest()
 
@@ -239,6 +244,7 @@ def show_add_user_window():
             messagebox.showerror('Помилка', 'Не вдалося додати користувача')
 
     tk.Button(win, text='Додати', command=add).grid(row=3, column=0, columnspan=2, pady=10)
+
 
 # --- Користувачі (тільки для адміністраторів/операторів) ---
 def show_users_window():
