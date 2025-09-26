@@ -995,6 +995,7 @@ def show_excursion_window():
     tk.Button(button_frame, text='Видалити', command=delete_excursion).pack(side='left')
 
 # --- Агентства ---
+
 def show_agency_window():
     win = tk.Toplevel()
     win.title('Агентства')
@@ -1006,17 +1007,69 @@ def show_agency_window():
 
     tree.pack(fill='both', expand=True, padx=10, pady=10)
 
-    def refresh():
-        for i in tree.get_children():
-            tree.delete(i)
-        for a in db.get_excursion_agencies():
-            tree.insert('', 'end', values=(a['id'], a['name'], a['contact_info']))
+    def get_all_agencies():
+        """Отримати всі агентства для перевірки унікальності"""
+        return db.get_excursion_agencies()
 
-        # Оновлюємо розміри вікна після завантаження даних
-        win.update_idletasks()
-        win.geometry(f"{tree.winfo_reqwidth() + 40}x{tree.winfo_reqheight() + 40}")
+    def is_name_unique(name, exclude_id=None):
+        """Перевірити унікальність назви агентства"""
+        agencies = get_all_agencies()
+        for agency in agencies:
+            if exclude_id and agency['id'] == exclude_id:
+                continue
+            if agency['name'].strip().lower() == name.strip().lower():
+                return False
+        return True
 
-    refresh()
+    def is_contact_unique(contact, exclude_id=None):
+        """Перевірити унікальність контактної інформації"""
+        if not contact.strip():
+            return True
+
+        agencies = get_all_agencies()
+        for agency in agencies:
+            if exclude_id and agency['id'] == exclude_id:
+                continue
+            if agency['contact_info'].strip().lower() == contact.strip().lower():
+                return False
+        return True
+
+    def extract_phone_and_email(contacts):
+        """Витягти телефон та email з контактної інформації"""
+        contacts = contacts.strip()
+        phone_pattern = re.compile(r'(\+?\d{10,13})')
+        email_pattern = re.compile(r'([\w\.-]+@[\w\.-]+\.\w+)')
+
+        phones = phone_pattern.findall(contacts)
+        emails = email_pattern.findall(contacts)
+
+        return phones, emails
+
+    def are_contacts_unique(contacts, exclude_id=None):
+        """Перевірити унікальність телефонів та email"""
+        if not contacts.strip():
+            return True, ""
+
+        phones, emails = extract_phone_and_email(contacts)
+        agencies = get_all_agencies()
+
+        for agency in agencies:
+            if exclude_id and agency['id'] == exclude_id:
+                continue
+
+            agency_phones, agency_emails = extract_phone_and_email(agency['contact_info'])
+
+            # Перевірка телефонів
+            for phone in phones:
+                if phone in agency_phones:
+                    return False, f"Телефон {phone} вже використовується"
+
+            # Перевірка email
+            for email in emails:
+                if email in agency_emails:
+                    return False, f"Email {email} вже використовується"
+
+        return True, ""
 
     def validate_contacts(value):
         """Перевірка, що введено телефон або email."""
@@ -1033,6 +1086,18 @@ def show_agency_window():
         if phone_pattern.search(value) or email_pattern.search(value):
             return True
         return False
+
+    def refresh():
+        for i in tree.get_children():
+            tree.delete(i)
+        for a in db.get_excursion_agencies():
+            tree.insert('', 'end', values=(a['id'], a['name'], a['contact_info']))
+
+        # Оновлюємо розміри вікна після завантаження даних
+        win.update_idletasks()
+        win.geometry(f"{tree.winfo_reqwidth() + 40}x{tree.winfo_reqheight() + 40}")
+
+    refresh()
 
     def add_agency():
         form = tk.Toplevel()
@@ -1054,9 +1119,20 @@ def show_agency_window():
                 messagebox.showerror('Помилка', 'Вкажіть хоча б телефон або email')
                 return
 
+            # Перевірка унікальності назви
+            if not is_name_unique(name):
+                messagebox.showerror('Помилка', 'Агентство з такою назвою вже існує')
+                return
+
+            # Перевірка унікальності контактів
+            contacts_unique, error_msg = are_contacts_unique(contacts)
+            if not contacts_unique:
+                messagebox.showerror('Помилка', error_msg)
+                return
+
             if db.add_excursion_agency(name, contacts):
                 messagebox.showinfo('Успіх', 'Агентство додано')
-                form.destroy();
+                form.destroy()
                 refresh()
             else:
                 messagebox.showerror('Помилка', 'Не вдалося додати агентство')
@@ -1097,9 +1173,20 @@ def show_agency_window():
                 messagebox.showerror('Помилка', 'Вкажіть хоча б телефон або email')
                 return
 
+            # Перевірка унікальності назви (виключаючи поточне агентство)
+            if not is_name_unique(name, agency_id):
+                messagebox.showerror('Помилка', 'Агентство з такою назвою вже існує')
+                return
+
+            # Перевірка унікальності контактів (виключаючи поточне агентство)
+            contacts_unique, error_msg = are_contacts_unique(contacts, agency_id)
+            if not contacts_unique:
+                messagebox.showerror('Помилка', error_msg)
+                return
+
             if db.update_excursion_agency(agency_id, name, contacts):
                 messagebox.showinfo('Успіх', 'Агентство оновлено')
-                form.destroy();
+                form.destroy()
                 refresh()
             else:
                 messagebox.showerror('Помилка', 'Не вдалося оновити агентство')
@@ -1120,7 +1207,7 @@ def show_agency_window():
                 refresh()
             else:
                 messagebox.showerror('Помилка', 'Не вдалося видалити агентство')
-    
+
     button_frame = tk.Frame(win)
     button_frame.pack(fill='x')
     tk.Button(button_frame, text='Додати', command=add_agency).pack(side='left')
