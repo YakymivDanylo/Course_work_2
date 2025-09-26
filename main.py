@@ -1597,11 +1597,13 @@ def show_group_members_window():
                 messagebox.showwarning('Помилка', 'Оберіть туриста')
                 return
 
-            # Перевірка чи турист вже є в групі
-            tourists_in_group = db.get_tourists_in_group(group_id)
-            if any(t['id'] == tourist_id for t in tourists_in_group):
-                messagebox.showwarning('Помилка', 'Турист вже є в цій групі')
-                return
+            # Перевірка чи турист вже є у будь-якій групі
+            all_groups = db.get_tourist_groups()
+            for g in all_groups:
+                tourists_in_group = db.get_tourists_in_group(g['id'])
+                if any(t['id'] == tourist_id for t in tourists_in_group):
+                    messagebox.showwarning('Помилка', f'Турист вже є в групі "{g["group_identifier"]}"')
+                    return
 
             # Додавання туриста до групи
             if db.add_tourist_to_group(group_id, tourist_id):
