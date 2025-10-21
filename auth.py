@@ -25,8 +25,11 @@ def show_login_window():
         if user and user['password'] == hashed_entered_password:
             set_current_user(user)
             login_win.destroy()
-            from views.main_menu import show_main_menu
-            show_main_menu()
+            # Імпортуємо після входу, щоб уникнути кешування
+            import importlib
+            from views import main_menu
+            importlib.reload(main_menu)
+            main_menu.show_main_menu()
         else:
             messagebox.showerror('Помилка', 'Невірний логін або пароль')
 
@@ -47,6 +50,21 @@ def show_login_window():
                             'Для відновлення паролю зверніться до адміністратора.\n\n'
                             f'Логін: {login_val}\n'
                             'Адміністратор зможе змінити ваш пароль без знання поточного.')
+
+    # Закриваємо всі існуючі вікна перед створенням нового
+    for widget in tk._default_root.winfo_children() if tk._default_root else []:
+        try:
+            widget.destroy()
+        except:
+            pass
+
+    # Закриваємо коріневе вікно, якщо воно існує
+    if tk._default_root:
+        try:
+            tk._default_root.quit()
+            tk._default_root.destroy()
+        except:
+            pass
 
     login_win = tk.Tk()
     login_win.title('Авторизація')
@@ -75,6 +93,7 @@ def show_login_window():
         if event.keysym == 'Return':
             login()
         elif event.keysym == 'Escape':
+            login_win.quit()
             login_win.destroy()
         elif event.keysym == 'F1':
             messagebox.showinfo('Довідка',
@@ -86,6 +105,7 @@ def show_login_window():
 
     login_win.bind('<KeyPress>', on_key_press)
     entry_login.focus_set()
+
     login_win.mainloop()
 
 
@@ -228,14 +248,27 @@ def show_users_window():
     tk.Button(button_frame, text='Видалити', command=delete_user).pack(side='left', padx=5)
 
 
-def logout():
+def logout(parent_window=None):
     clear_current_user()
 
-    for widget in tk._default_root.winfo_children():
-        if isinstance(widget, tk.Toplevel):
+    # Знищуємо всі вікна
+    if parent_window:
+        parent_window.destroy()
+
+    # Закриваємо всі вікна Tkinter
+    for widget in tk._default_root.winfo_children() if tk._default_root else []:
+        try:
             widget.destroy()
+        except:
+            pass
 
+    # Закриваємо коріневе вікно
     if tk._default_root:
-        tk._default_root.destroy()
+        try:
+            tk._default_root.quit()
+            tk._default_root.destroy()
+        except:
+            pass
 
+    # Показуємо вікно авторизації
     show_login_window()

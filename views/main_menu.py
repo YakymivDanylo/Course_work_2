@@ -1,23 +1,27 @@
 import tkinter as tk
 from tkinter import messagebox
 from models.current_user import current_user
-from auth import logout, show_add_user_window, show_users_window
-from .tourist_views import show_tourist_window, show_tourist_view_window
-from .hotel_views import show_hotel_window, show_hotel_view_window, show_hotel_public_window
-from .excursion_views import show_excursion_window, show_excursion_view_window, show_excursion_public_window
-from .agency_views import show_agency_window, show_agency_view_window, show_agency_public_window
-from .cargo_views import show_cargo_window, show_cargo_view_window
-from .visa_views import show_visa_window, show_visa_view_window
-from .group_views import show_group_window, show_group_view_window, show_group_members_window
-from .flight_views import show_flight_window, show_flight_view_window
-from .financial_views import show_financial_window, show_financial_view_window, show_airport_operations_window, show_customs_procedures_window
-from .query_views import show_queries_window
-from .request_views import show_requests_window
-from .tourist_excursion_views import show_tourist_excursion_window
-from .tourist_flight_views import show_tourist_flight_window
-from .tourist_hotel_views import show_tourist_hotel_window
+
 
 def show_main_menu():
+    # Локальний імпорт для уникнення циклічних залежностей
+    from auth import logout, show_add_user_window, show_users_window
+    from .tourist_views import show_tourist_window, show_tourist_view_window
+    from .hotel_views import show_hotel_window, show_hotel_view_window, show_hotel_public_window
+    from .excursion_views import show_excursion_window, show_excursion_view_window, show_excursion_public_window
+    from .agency_views import show_agency_window, show_agency_view_window, show_agency_public_window
+    from .cargo_views import show_cargo_window, show_cargo_view_window
+    from .visa_views import show_visa_window, show_visa_view_window
+    from .group_views import show_group_window, show_group_view_window, show_group_members_window
+    from .flight_views import show_flight_window, show_flight_view_window
+    from .financial_views import show_financial_window, show_financial_view_window, show_airport_operations_window, \
+        show_customs_procedures_window
+    from .query_views import show_queries_window
+    from .request_views import show_requests_window
+    from .tourist_excursion_views import show_tourist_excursion_window
+    from .tourist_flight_views import show_tourist_flight_window
+    from .tourist_hotel_views import show_tourist_hotel_window
+
     main_win = tk.Tk()
     main_win.title('Головне меню')
     main_win.attributes('-fullscreen', True)
@@ -97,7 +101,7 @@ def show_main_menu():
 
     create_button('Функціональні запити', show_queries_window).pack(pady=5)
     create_button('Заявки', show_requests_window).pack(pady=5)
-    create_button('Вийти', logout).pack(pady=5)
+    create_button('Вийти', lambda: logout(main_win)).pack(pady=5)
 
     def on_key_press(event):
         if event.keysym == 'F1':
@@ -109,8 +113,13 @@ def show_main_menu():
                                 'Tab - Перехід до наступного поля\n'
                                 'Shift+Tab - Перехід до попереднього поля')
         elif event.keysym == 'Escape':
-            main_win.destroy()
+            logout(main_win)
 
     main_win.bind('<KeyPress>', on_key_press)
     main_win.focus_set()
+
+    def on_closing():
+        logout(main_win)
+
+    main_win.protocol("WM_DELETE_WINDOW", on_closing)
     main_win.mainloop()
