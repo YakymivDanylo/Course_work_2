@@ -95,7 +95,8 @@ def show_queries_window():
                 'expense_excursion': 'Витрати на екскурсії(грн.)',
                 'expense_equipment': 'Витрати на спорядження(грн.)',
                 'expense_cargo': 'Витрати на вантаж(грн.)',
-                'expense_airport': 'Витрати на аеропорт(грн.)'
+                'expense_airport': 'Витрати на аеропорт(грн.)',
+                'group_identifier':'Ідентифікатор групи'
             }
 
             res = db.get_financial_by_period(date_from.get(), date_to.get())

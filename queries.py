@@ -874,12 +874,14 @@ def get_financial_by_period(date_from, date_to):
     try:
         with conn.cursor(cursor_factory=extras.DictCursor) as cur:
             cur.execute('''
-                SELECT * FROM financialreport WHERE id IN (
-                    SELECT id FROM financialreport WHERE group_id IN (
-                        SELECT id FROM touristgroup WHERE arrival_date >= %s AND departure_date <= %s
-                    )
-                )
-            ''', (date_from, date_to))
+                SELECT fr.*, tg.group_identifier 
+                FROM financialreport fr
+                LEFT JOIN touristgroup tg ON fr.group_id = tg.id
+                WHERE (tg.arrival_date BETWEEN %s AND %s)
+                   OR (tg.departure_date BETWEEN %s AND %s)
+                   OR (%s BETWEEN tg.arrival_date AND tg.departure_date)
+                   OR (%s BETWEEN tg.arrival_date AND tg.departure_date)
+            ''', (date_from, date_to, date_from, date_to, date_from, date_to))
             return cur.fetchall()
     except Exception as e:
         print('Помилка отримання фін. звітів за період:', e)
@@ -912,15 +914,17 @@ def get_excursion_stats(date_from, date_to):
     try:
         with conn.cursor(cursor_factory=extras.DictCursor) as cur:
             cur.execute('''
-                SELECT COUNT(DISTINCT te.tourist_id) AS tourists_count,
-                       e.name AS excursion_name,
-                       a.name AS agency_name,
-                       COUNT(te.excursion_id) AS excursion_orders
-                FROM touristexcursion te
-                JOIN excursion e ON te.excursion_id = e.id
-                JOIN excursionagency a ON e.agency_id = a.id
+                SELECT 
+                    e.name AS excursion_name,
+                    ea.name AS agency_name,
+                    COUNT(DISTINCT te.tourist_id) AS tourists_count,
+                    COUNT(te.id) AS excursion_orders,
+                    SUM(e.price) AS total_income
+                FROM excursion e
+                JOIN excursionagency ea ON e.agency_id = ea.id
+                LEFT JOIN touristexcursion te ON e.id = te.excursion_id
                 WHERE e.date BETWEEN %s AND %s
-                GROUP BY e.name, a.name
+                GROUP BY e.name, ea.name, e.id
                 ORDER BY excursion_orders DESC
             ''', (date_from, date_to))
             return cur.fetchall()
@@ -938,7 +942,14 @@ def get_cargo_stats(date_from, date_to):
     try:
         with conn.cursor(cursor_factory=extras.DictCursor) as cur:
             cur.execute('''
-                SELECT COUNT(c.id) AS places_count, SUM(c.weight) AS total_weight, COUNT(DISTINCT f.id) AS flights_count, f.plane_class
+                SELECT 
+                    f.plane_class,
+                    COUNT(DISTINCT c.id) AS places_count,
+                    SUM(c.weight) AS total_weight,
+                    COUNT(DISTINCT f.id) AS flights_count,
+                    AVG(c.weight) AS average_weight,
+                    MAX(c.weight) AS max_weight,
+                    MIN(c.weight) AS min_weight
                 FROM cargo c
                 JOIN tourist t ON c.tourist_id = t.id
                 JOIN touristflight tf ON t.id = tf.tourist_id
@@ -1001,12 +1012,20 @@ def get_hotel_occupancy(date_from, date_to):
     try:
         with conn.cursor(cursor_factory=extras.DictCursor) as cur:
             cur.execute('''
-                SELECT h.name, COUNT(DISTINCT th.tourist_id) AS tourists_count, COUNT(th.id) AS rooms_occupied
-                FROM touristhotel th
-                JOIN hotel h ON th.hotel_id = h.id
-                WHERE th.checkin_date >= %s AND th.checkout_date <= %s
-                GROUP BY h.name
-            ''', (date_from, date_to))
+                SELECT 
+                    h.name,
+                    COUNT(DISTINCT th.tourist_id) AS tourists_count,
+                    COUNT(th.id) AS rooms_occupied,
+                    h.rooms_count AS total_rooms,
+                    ROUND((COUNT(th.id) * 100.0 / NULLIF(h.rooms_count, 0)), 2) AS occupancy_percentage
+                FROM hotel h
+                LEFT JOIN touristhotel th ON h.id = th.hotel_id 
+                    AND (th.checkin_date <= %s AND th.checkout_date >= %s
+                         OR th.checkin_date BETWEEN %s AND %s
+                         OR th.checkout_date BETWEEN %s AND %s)
+                GROUP BY h.id, h.name, h.rooms_count
+                ORDER BY occupancy_percentage DESC
+            ''', (date_to, date_from, date_from, date_to, date_from, date_to))
             return cur.fetchall()
     except Exception as e:
         print('Помилка отримання зайнятих номерів:', e)
@@ -1039,18 +1058,35 @@ def get_tourists_by_period(date_from, date_to, category=None):
         return []
     try:
         with conn.cursor(cursor_factory=extras.DictCursor) as cur:
+            base_query = '''
+                         SELECT DISTINCT t.*, \
+                                         tf.arrival_date, \
+                                         tf.departure_date, \
+                                         f.flight_number, \
+                                         tg.group_identifier, \
+                                         (SELECT string_agg(h.name, ', ') \
+                                          FROM touristhotel th \
+                                                   JOIN hotel h ON th.hotel_id = h.id \
+                                          WHERE th.tourist_id = t.id) as hotel_names
+                         FROM tourist t
+                                  JOIN touristflight tf ON t.id = tf.tourist_id
+                                  JOIN flight f ON tf.flight_id = f.id
+                                  LEFT JOIN touristgroupmember tgm ON t.id = tgm.tourist_id
+                                  LEFT JOIN touristgroup tg ON tgm.group_id = tg.id
+                         WHERE (tf.arrival_date BETWEEN %s AND %s
+                             OR tf.departure_date BETWEEN %s AND %s
+                             OR (tf.arrival_date <= %s AND tf.departure_date >= %s)) \
+                         '''
+
+            params = [date_from, date_to, date_from, date_to, date_from, date_to]
+
             if category:
-                cur.execute('''
-                    SELECT DISTINCT t.* FROM tourist t
-                    JOIN touristflight tf ON t.id = tf.tourist_id
-                    WHERE tf.arrival_date >= %s AND tf.departure_date <= %s AND t.category = %s
-                ''', (date_from, date_to, category))
-            else:
-                cur.execute('''
-                    SELECT DISTINCT t.* FROM tourist t
-                    JOIN touristflight tf ON t.id = tf.tourist_id
-                    WHERE tf.arrival_date >= %s AND tf.departure_date <= %s
-                ''', (date_from, date_to))
+                base_query += ' AND t.category = %s'
+                params.append(category)
+
+            base_query += ' ORDER BY tf.arrival_date'
+
+            cur.execute(base_query, params)
             return cur.fetchall()
     except Exception as e:
         print('Помилка отримання туристів за період:', e)
@@ -1336,6 +1372,203 @@ def remove_tourist_from_group(group_id, tourist_id):
         return True
     except Exception as e:
         print('Error removing tourist from group:', e)
+        return False
+    finally:
+        conn.close()
+
+# --- CRUD-функції для Турист-Екскурсія ---
+def add_tourist_excursion(tourist_id, excursion_id):
+    conn = get_connection()
+    if not conn:
+        return False
+    try:
+        with conn.cursor() as cur:
+            cur.execute('''
+                INSERT INTO touristexcursion (tourist_id, excursion_id)
+                VALUES (%s, %s)
+            ''', (tourist_id, excursion_id))
+            conn.commit()
+        return True
+    except Exception as e:
+        print('Помилка додавання туриста до екскурсії:', e)
+        return False
+    finally:
+        conn.close()
+
+def get_tourist_excursions():
+    conn = get_connection()
+    if not conn:
+        return []
+    try:
+        with conn.cursor(cursor_factory=extras.DictCursor) as cur:
+            cur.execute('''
+                SELECT te.*, t.full_name, e.name as excursion_name
+                FROM touristexcursion te
+                JOIN tourist t ON te.tourist_id = t.id
+                JOIN excursion e ON te.excursion_id = e.id
+            ''')
+            return cur.fetchall()
+    except Exception as e:
+        print('Помилка отримання туристів на екскурсіях:', e)
+        return []
+    finally:
+        conn.close()
+
+def delete_tourist_excursion(tourist_excursion_id):
+    conn = get_connection()
+    if not conn:
+        return False
+    try:
+        with conn.cursor() as cur:
+            cur.execute('DELETE FROM touristexcursion WHERE id=%s', (tourist_excursion_id,))
+            conn.commit()
+        return True
+    except Exception as e:
+        print('Помилка видалення туриста з екскурсії:', e)
+        return False
+    finally:
+        conn.close()
+
+# --- CRUD-функції для Турист-Рейс ---
+def add_tourist_flight(tourist_id, flight_id, arrival_date, departure_date):
+    conn = get_connection()
+    if not conn:
+        return False
+    try:
+        with conn.cursor() as cur:
+            cur.execute('''
+                INSERT INTO touristflight (tourist_id, flight_id, arrival_date, departure_date)
+                VALUES (%s, %s, %s, %s)
+            ''', (tourist_id, flight_id, arrival_date, departure_date))
+            conn.commit()
+        return True
+    except Exception as e:
+        print('Помилка додавання туриста до рейсу:', e)
+        return False
+    finally:
+        conn.close()
+
+def get_tourist_flights():
+    conn = get_connection()
+    if not conn:
+        return []
+    try:
+        with conn.cursor(cursor_factory=extras.DictCursor) as cur:
+            cur.execute('''
+                SELECT tf.*, t.full_name, f.flight_number, f.date as flight_date
+                FROM touristflight tf
+                JOIN tourist t ON tf.tourist_id = t.id
+                JOIN flight f ON tf.flight_id = f.id
+            ''')
+            return cur.fetchall()
+    except Exception as e:
+        print('Помилка отримання туристів на рейсах:', e)
+        return []
+    finally:
+        conn.close()
+
+def update_tourist_flight(tourist_flight_id, tourist_id, flight_id, arrival_date, departure_date):
+    conn = get_connection()
+    if not conn:
+        return False
+    try:
+        with conn.cursor() as cur:
+            cur.execute('''
+                UPDATE touristflight 
+                SET tourist_id=%s, flight_id=%s, arrival_date=%s, departure_date=%s
+                WHERE id=%s
+            ''', (tourist_id, flight_id, arrival_date, departure_date, tourist_flight_id))
+            conn.commit()
+        return True
+    except Exception as e:
+        print('Помилка оновлення туриста на рейсі:', e)
+        return False
+    finally:
+        conn.close()
+
+def delete_tourist_flight(tourist_flight_id):
+    conn = get_connection()
+    if not conn:
+        return False
+    try:
+        with conn.cursor() as cur:
+            cur.execute('DELETE FROM touristflight WHERE id=%s', (tourist_flight_id,))
+            conn.commit()
+        return True
+    except Exception as e:
+        print('Помилка видалення туриста з рейсу:', e)
+        return False
+    finally:
+        conn.close()
+
+# --- CRUD-функції для Турист-Готель ---
+def add_tourist_hotel(tourist_id, hotel_id, checkin_date, checkout_date):
+    conn = get_connection()
+    if not conn:
+        return False
+    try:
+        with conn.cursor() as cur:
+            cur.execute('''
+                INSERT INTO touristhotel (tourist_id, hotel_id, checkin_date, checkout_date)
+                VALUES (%s, %s, %s, %s)
+            ''', (tourist_id, hotel_id, checkin_date, checkout_date))
+            conn.commit()
+        return True
+    except Exception as e:
+        print('Помилка додавання туриста до готелю:', e)
+        return False
+    finally:
+        conn.close()
+
+def get_tourist_hotels():
+    conn = get_connection()
+    if not conn:
+        return []
+    try:
+        with conn.cursor(cursor_factory=extras.DictCursor) as cur:
+            cur.execute('''
+                SELECT th.*, t.full_name, h.name as hotel_name
+                FROM touristhotel th
+                JOIN tourist t ON th.tourist_id = t.id
+                JOIN hotel h ON th.hotel_id = h.id
+            ''')
+            return cur.fetchall()
+    except Exception as e:
+        print('Помилка отримання туристів у готелях:', e)
+        return []
+    finally:
+        conn.close()
+
+def update_tourist_hotel(tourist_hotel_id, tourist_id, hotel_id, checkin_date, checkout_date):
+    conn = get_connection()
+    if not conn:
+        return False
+    try:
+        with conn.cursor() as cur:
+            cur.execute('''
+                UPDATE touristhotel 
+                SET tourist_id=%s, hotel_id=%s, checkin_date=%s, checkout_date=%s
+                WHERE id=%s
+            ''', (tourist_id, hotel_id, checkin_date, checkout_date, tourist_hotel_id))
+            conn.commit()
+        return True
+    except Exception as e:
+        print('Помилка оновлення туриста в готелі:', e)
+        return False
+    finally:
+        conn.close()
+
+def delete_tourist_hotel(tourist_hotel_id):
+    conn = get_connection()
+    if not conn:
+        return False
+    try:
+        with conn.cursor() as cur:
+            cur.execute('DELETE FROM touristhotel WHERE id=%s', (tourist_hotel_id,))
+            conn.commit()
+        return True
+    except Exception as e:
+        print('Помилка видалення туриста з готелю:', e)
         return False
     finally:
         conn.close()

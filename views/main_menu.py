@@ -13,6 +13,9 @@ from .flight_views import show_flight_window, show_flight_view_window
 from .financial_views import show_financial_window, show_financial_view_window, show_airport_operations_window, show_customs_procedures_window
 from .query_views import show_queries_window
 from .request_views import show_requests_window
+from .tourist_excursion_views import show_tourist_excursion_window
+from .tourist_flight_views import show_tourist_flight_window
+from .tourist_hotel_views import show_tourist_hotel_window
 
 def show_main_menu():
     main_win = tk.Tk()
@@ -73,6 +76,9 @@ def show_main_menu():
         create_button('Фінансові звіти', show_financial_window).pack(pady=5)
         create_button('Аеропортні операції', show_airport_operations_window).pack(pady=5)
         create_button('Митничні процедури', show_customs_procedures_window).pack(pady=5)
+        create_button('Туристи на екскурсіях', show_tourist_excursion_window).pack(pady=5)
+        create_button('Туристи на рейсах', show_tourist_flight_window).pack(pady=5)
+        create_button('Туристи в готелях', show_tourist_hotel_window).pack(pady=5)
 
     elif current_user['role'] == 'Авторизований':
         create_button('Переглянути туристів', show_tourist_view_window).pack(pady=5)
