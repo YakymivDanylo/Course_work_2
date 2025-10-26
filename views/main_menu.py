@@ -21,6 +21,7 @@ def show_main_menu():
     from .tourist_excursion_views import show_tourist_excursion_window
     from .tourist_flight_views import show_tourist_flight_window
     from .tourist_hotel_views import show_tourist_hotel_window
+    from .custom_sql_views import show_custom_sql_window
 
     main_win = tk.Tk()
     main_win.title('Головне меню')
@@ -66,6 +67,7 @@ def show_main_menu():
     if current_user['role'] == 'Адміністратор':
         create_button('Додати користувача', show_add_user_window).pack(pady=5)
         create_button('Керування користувачами', show_users_window).pack(pady=5)
+        create_button('Виконати SQL запит', show_custom_sql_window).pack(pady=5)
 
     if current_user['role'] in ['Оператор', 'Адміністратор']:
         create_button('Туристи', show_tourist_window).pack(pady=5)
