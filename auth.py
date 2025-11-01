@@ -25,7 +25,7 @@ def show_login_window():
         if user and user['password'] == hashed_entered_password:
             set_current_user(user)
             login_win.destroy()
-            # Імпортуємо після входу, щоб уникнути кешування
+
             import importlib
             from views import main_menu
             importlib.reload(main_menu)
@@ -51,14 +51,12 @@ def show_login_window():
                             f'Логін: {login_val}\n'
                             'Адміністратор зможе змінити ваш пароль без знання поточного.')
 
-    # Закриваємо всі існуючі вікна перед створенням нового
     for widget in tk._default_root.winfo_children() if tk._default_root else []:
         try:
             widget.destroy()
         except:
             pass
 
-    # Закриваємо коріневе вікно, якщо воно існує
     if tk._default_root:
         try:
             tk._default_root.quit()
@@ -251,18 +249,15 @@ def show_users_window():
 def logout(parent_window=None):
     clear_current_user()
 
-    # Знищуємо всі вікна
     if parent_window:
         parent_window.destroy()
 
-    # Закриваємо всі вікна Tkinter
     for widget in tk._default_root.winfo_children() if tk._default_root else []:
         try:
             widget.destroy()
         except:
             pass
 
-    # Закриваємо коріневе вікно
     if tk._default_root:
         try:
             tk._default_root.quit()
@@ -270,5 +265,4 @@ def logout(parent_window=None):
         except:
             pass
 
-    # Показуємо вікно авторизації
     show_login_window()

@@ -1,7 +1,6 @@
 import psycopg2
 from psycopg2 import sql, extras
 
-# --- Налаштування підключення ---
 DB_CONFIG = {
     'host': 'localhost',
     'dbname': 'tour_agency',
@@ -56,15 +55,12 @@ def update_tourist(tourist_id, full_name, passport, gender, age, category, child
         return False
     try:
         with conn.cursor() as cur:
-            # Перевіряємо, чи не існує туриста з таким же паспортом (крім поточного)
             cur.execute('SELECT id FROM tourist WHERE passport = %s AND id != %s', (passport, tourist_id))
             existing_tourist = cur.fetchone()
 
             if existing_tourist:
-                # Якщо знайшли туриста з таким же паспортом - повертаємо спеціальний код помилки
                 return 'duplicate_passport'
 
-            # Якщо паспорт унікальний - оновлюємо дані
             cur.execute('''
                 UPDATE tourist
                 SET full_name=%s,
@@ -79,7 +75,6 @@ def update_tourist(tourist_id, full_name, passport, gender, age, category, child
         return True
     except Exception as e:
         print('Помилка оновлення туриста:', e)
-        # Додаткова перевірка для унікальності паспорта
         if 'unique' in str(e).lower() or 'duplicate' in str(e).lower():
             return 'duplicate_passport'
         return False
@@ -102,7 +97,6 @@ def delete_tourist(tourist_id):
         conn.close()
 
 
-# Додати цю функцію в queries.py
 def check_passport_unique(passport, tourist_id=None):
     """
     Перевіряє унікальність паспорта в БД
@@ -115,15 +109,13 @@ def check_passport_unique(passport, tourist_id=None):
     try:
         with conn.cursor() as cur:
             if tourist_id:
-                # Перевірка для редагування (виключаємо поточного туриста)
                 cur.execute('SELECT id FROM tourist WHERE passport = %s AND id != %s',
                             (passport, tourist_id))
             else:
-                # Перевірка для додавання нового туриста
                 cur.execute('SELECT id FROM tourist WHERE passport = %s', (passport,))
 
             existing_tourist = cur.fetchone()
-            return existing_tourist is None  # True якщо паспорт унікальний
+            return existing_tourist is None
 
     except Exception as e:
         print('Помилка перевірки паспорта:', e)
@@ -131,7 +123,6 @@ def check_passport_unique(passport, tourist_id=None):
     finally:
         conn.close()
 
-# Update user without changing password
 
 def update_user_without_password(user_id, login, role):
     conn = get_connection()
@@ -706,22 +697,20 @@ def user_exists(login):
             return result is not None
     except Exception as e:
         print('Помилка перевірки користувача:', e)
-        return True  # У разі помилки краще не дозволити додавання
+        return True
     finally:
         conn.close()
 
 
-# Оновлена функція add_user для більш безпечної роботи
 def add_user(login, password, role):
     conn = get_connection()
     if not conn:
         return False
     try:
         with conn.cursor() as cur:
-            # Додаємо перевірку на унікальність (забійний захід)
             cur.execute('SELECT login FROM keys WHERE login = %s', (login,))
             if cur.fetchone():
-                return False  # Користувач вже існує
+                return False
 
             cur.execute('''
                         INSERT INTO keys (login, password, role)
@@ -971,7 +960,6 @@ def get_tourist_info(tourist_id):
         return None
     try:
         with conn.cursor(cursor_factory=extras.DictCursor) as cur:
-            # Кількість поїздок у країну, дати, готелі, екскурсії, вантаж
             cur.execute('''
                 SELECT t.*, 
                     (SELECT COUNT(*) FROM visa v WHERE v.tourist_id = t.id) AS trips_count,

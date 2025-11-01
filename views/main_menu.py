@@ -4,7 +4,6 @@ from models.current_user import current_user
 
 
 def show_main_menu():
-    # Локальний імпорт для уникнення циклічних залежностей
     from auth import logout, show_add_user_window, show_users_window
     from .tourist_views import show_tourist_window, show_tourist_view_window
     from .hotel_views import show_hotel_window, show_hotel_view_window, show_hotel_public_window
