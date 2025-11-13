@@ -1083,70 +1083,70 @@ def get_tourists_by_period(date_from, date_to, category=None):
         conn.close()
 
 # --- CRUD-функції для Вагових відомостей ---
-def add_weight_list(cargo_id, item_description, weight, marking, packaging_type):
-    conn = get_connection()
-    if not conn:
-        return False
-    try:
-        with conn.cursor() as cur:
-            cur.execute('''
-                INSERT INTO weight_list (cargo_id, item_description, weight, marking, packaging_type)
-                VALUES (%s, %s, %s, %s, %s)
-            ''', (cargo_id, item_description, weight, marking, packaging_type))
-            conn.commit()
-        return True
-    except Exception as e:
-        print('Помилка додавання вагової відомості:', e)
-        return False
-    finally:
-        conn.close()
-
-def get_weight_lists():
-    conn = get_connection()
-    if not conn:
-        return []
-    try:
-        with conn.cursor(cursor_factory=extras.DictCursor) as cur:
-            cur.execute('SELECT * FROM weight_list')
-            return cur.fetchall()
-    except Exception as e:
-        print('Помилка отримання вагових відомостей:', e)
-        return []
-    finally:
-        conn.close()
-
-def update_weight_list(weight_id, cargo_id, item_description, weight, marking, packaging_type):
-    conn = get_connection()
-    if not conn:
-        return False
-    try:
-        with conn.cursor() as cur:
-            cur.execute('''
-                UPDATE weight_list SET cargo_id=%s, item_description=%s, weight=%s, marking=%s, packaging_type=%s
-                WHERE id=%s
-            ''', (cargo_id, item_description, weight, marking, packaging_type, weight_id))
-            conn.commit()
-        return True
-    except Exception as e:
-        print('Помилка оновлення вагової відомості:', e)
-        return False
-    finally:
-        conn.close()
-
-def delete_weight_list(weight_id):
-    conn = get_connection()
-    if not conn:
-        return False
-    try:
-        with conn.cursor() as cur:
-            cur.execute('DELETE FROM weight_list WHERE id=%s', (weight_id,))
-            conn.commit()
-        return True
-    except Exception as e:
-        print('Помилка видалення вагової відомості:', e)
-        return False
-    finally:
-        conn.close()
+# def add_weight_list(cargo_id, item_description, weight, marking, packaging_type):
+#     conn = get_connection()
+#     if not conn:
+#         return False
+#     try:
+#         with conn.cursor() as cur:
+#             cur.execute('''
+#                 INSERT INTO weight_list (cargo_id, item_description, weight, marking, packaging_type)
+#                 VALUES (%s, %s, %s, %s, %s)
+#             ''', (cargo_id, item_description, weight, marking, packaging_type))
+#             conn.commit()
+#         return True
+#     except Exception as e:
+#         print('Помилка додавання вагової відомості:', e)
+#         return False
+#     finally:
+#         conn.close()
+#
+# def get_weight_lists():
+#     conn = get_connection()
+#     if not conn:
+#         return []
+#     try:
+#         with conn.cursor(cursor_factory=extras.DictCursor) as cur:
+#             cur.execute('SELECT * FROM weight_list')
+#             return cur.fetchall()
+#     except Exception as e:
+#         print('Помилка отримання вагових відомостей:', e)
+#         return []
+#     finally:
+#         conn.close()
+#
+# def update_weight_list(weight_id, cargo_id, item_description, weight, marking, packaging_type):
+#     conn = get_connection()
+#     if not conn:
+#         return False
+#     try:
+#         with conn.cursor() as cur:
+#             cur.execute('''
+#                 UPDATE weight_list SET cargo_id=%s, item_description=%s, weight=%s, marking=%s, packaging_type=%s
+#                 WHERE id=%s
+#             ''', (cargo_id, item_description, weight, marking, packaging_type, weight_id))
+#             conn.commit()
+#         return True
+#     except Exception as e:
+#         print('Помилка оновлення вагової відомості:', e)
+#         return False
+#     finally:
+#         conn.close()
+#
+# def delete_weight_list(weight_id):
+#     conn = get_connection()
+#     if not conn:
+#         return False
+#     try:
+#         with conn.cursor() as cur:
+#             cur.execute('DELETE FROM weight_list WHERE id=%s', (weight_id,))
+#             conn.commit()
+#         return True
+#     except Exception as e:
+#         print('Помилка видалення вагової відомості:', e)
+#         return False
+#     finally:
+#         conn.close()
 
 # --- CRUD-функції для Аеропортних операцій ---
 def add_airport_operation(flight_id, operation_type, description, cost):

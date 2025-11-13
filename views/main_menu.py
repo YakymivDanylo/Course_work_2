@@ -84,6 +84,7 @@ def show_main_menu():
         create_button('Туристи на екскурсіях', show_tourist_excursion_window).pack(pady=5)
         create_button('Туристи на рейсах', show_tourist_flight_window).pack(pady=5)
         create_button('Туристи в готелях', show_tourist_hotel_window).pack(pady=5)
+        create_button('Функціональні запити', show_queries_window).pack(pady=5)
 
     elif current_user['role'] == 'Авторизований':
         create_button('Переглянути туристів', show_tourist_view_window).pack(pady=5)
@@ -94,13 +95,14 @@ def show_main_menu():
         create_button('Переглянути візи', show_visa_view_window).pack(pady=5)
         create_button('Переглянути групи', show_group_view_window).pack(pady=5)
         create_button('Переглянути авіарейси', show_flight_view_window).pack(pady=5)
+        create_button('Функціональні запити', show_queries_window).pack(pady=5)
 
     elif current_user['role'] == 'Гість':
         create_button('Переглянути готелі', show_hotel_public_window).pack(pady=5)
         create_button('Переглянути екскурсії', show_excursion_public_window).pack(pady=5)
         create_button('Переглянути агентства', show_agency_public_window).pack(pady=5)
 
-    create_button('Функціональні запити', show_queries_window).pack(pady=5)
+
     create_button('Заявки', show_requests_window).pack(pady=5)
     create_button('Вийти', lambda: logout(main_win)).pack(pady=5)
 
