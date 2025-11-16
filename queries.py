@@ -786,16 +786,35 @@ def add_request(user_id):
     finally:
         conn.close()
 
-def get_requests():
+
+def get_requests(user_id=None, role=None):
     conn = get_connection()
     if not conn:
         return []
+
     try:
         with conn.cursor(cursor_factory=extras.DictCursor) as cur:
-            cur.execute('''
-                SELECT requests.*, keys.login FROM requests JOIN keys ON requests.user_id = keys.id
-            ''')
+            # Базовий запит
+            query = '''
+                    SELECT requests.*, keys.login
+                    FROM requests
+                             JOIN keys ON requests.user_id = keys.id \
+                    '''
+            params = []
+
+            # Якщо це Гість, додаємо фільтрацію за його ID
+            if role == 'Гість' and user_id is not None:
+                query += ' WHERE requests.user_id = %s'
+                params.append(user_id)
+
+            # Адміністратори та інші бачитимуть усе,
+            # оскільки для них WHERE не додається
+
+            query += ' ORDER BY requests.request_date DESC'  # Додав сортування для зручності
+
+            cur.execute(query, params)
             return cur.fetchall()
+
     except Exception as e:
         print('Помилка отримання заявок:', e)
         return []

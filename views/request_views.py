@@ -1,6 +1,7 @@
 import tkinter as tk
 from tkinter import ttk, messagebox
-from models.current_user import current_user
+# 1. ЗМІНЕНИЙ ІМПОРТ
+from models import current_user as current_user_model
 import queries as db
 
 
@@ -15,14 +16,21 @@ def show_requests_window():
     def refresh():
         for i in tree.get_children():
             tree.delete(i)
-        for r in db.get_requests():
+
+        # Отримуємо поточного користувача з імпортованого модуля
+        user = current_user_model.current_user
+
+        # Передаємо user_id та role у функцію get_requests
+        for r in db.get_requests(user_id=user['id'], role=user['role']):
             tree.insert('', 'end', values=(r['id'], r['login'], r['status'], r['request_date']))
 
     refresh()
 
-    if current_user['role'] == 'Гість':
+    # 2. ЗВЕРТАЄМОСЬ ЧЕРЕЗ МОДУЛЬ
+    if current_user_model.current_user['role'] == 'Гість':
         def send_request():
-            if db.add_request(current_user['id']):
+            # 3. ТУТ ТАКОЖ
+            if db.add_request(current_user_model.current_user['id']):
                 messagebox.showinfo('Успіх', 'Заявку подано')
                 win.destroy()
             else:
@@ -30,7 +38,8 @@ def show_requests_window():
 
         tk.Button(win, text='Подати заявку', command=send_request).pack()
 
-    if current_user['role'] == 'Адміністратор':
+    # 4. І ТУТ
+    if current_user_model.current_user['role'] == 'Адміністратор':
         def approve():
             sel = tree.selection()
             if sel:
